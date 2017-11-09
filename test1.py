@@ -3,7 +3,7 @@ from sklearn.metrics import r2_score
 import numpy as np
 import pickle
 
-data = np.genfromtxt('/home/student/Downloads/train_data/alpine-1.csv', skip_header=1, dtype=float, delimiter=',', skip_footer=1)
+data = np.genfromtxt('./train_data/alpine-1.csv', skip_header=1, dtype=float, delimiter=',', skip_footer=1)
 x_train = data[0:13600,3:25]
 y_train = data[0:13600,0:3]
 x_test = data[13600:,3:25]
