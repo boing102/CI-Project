@@ -1,5 +1,6 @@
-from keras.models import Sequential
+from keras import backend as K
 from keras.layers import Dense, Activation
+from keras.models import Sequential
 
 from data import all_data, x_y, split_data
 
@@ -33,3 +34,4 @@ def run_model(model):
 if __name__ == "__main__":
     model = simple_NN(22)
     run_model(model)
+    K.clear_session()
