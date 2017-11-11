@@ -1,9 +1,7 @@
 import numpy as np
 import glob
 
-# Example usage:
-#
-#   tuples(all_data())
+# See main for example usage.
 
 
 # Training data from all files concatenated.
@@ -15,15 +13,27 @@ def all_data():
     return np.concatenate(data)
 
 
-# Convert raw training data to a list of tuples (x, y). Where x is the sensor
-# input and y the desired output.
-def tuples(data):
-    return (data[:, :3], data[:, 3:])
+# Split data into training, validation and testing data, by given ratio.
+def split_data(data, tr, va, te):
+    sum_ = tr + va + te
+    tr_end = int((tr / sum_) * len(data))
+    va_end = int(((tr + va) / sum_) * len(data))
+    return (data[:tr_end], data[tr_end + 1:va_end], data[va_end + 1:])
+
+
+# Convert raw training data to a tuple (x, y). Where x is the sensor input and
+# y the desired output.
+def x_y(data):
+    return (data[:, 3:], data[:, :3])
 
 
 if __name__ == "__main__":
     all_ = all_data()
     print(all_.shape)
-    pretty = tuples(all_)
-    print(pretty[0].shape)
-    print(pretty[1].shape)
+    tr, va, te = split_data(all_, 4, 1, 1)
+    print(tr.shape)
+    print(va.shape)
+    print(te.shape)
+    x, y = x_y(tr)
+    print(x.shape)
+    print(y.shape)
