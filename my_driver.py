@@ -48,15 +48,21 @@ class MyDriver(Driver):
         super(MyDriver, self).__init__(*args, **kwargs)
 
     def drive(self, carstate: State) -> Command:
-        """Produces driving command in response to newly received car state. This is a
-        dummy driving routine, very dumb and not really considering a lot of
-        inputs. But it will get the car (if not disturbed by other drivers)
-        successfully driven along the race track.
+        """Given the car State return the next Command.
+
+        Command attributes:
+
+        accelerator: Accelerator, 0: no gas, 1: full gas, [0;1].
+        brake:  Brake pedal, [0;1].
+        gear: Next gear. -1: reverse, 0: neutral, [1;6]: corresponding forward gear.
+        steering: Rotation of steering wheel, -1: full right, 0: straight, 1: full left, [-1;1].
+            Full turn results in an approximate wheel rotation of 21 degrees.
+        focus: Direction of driver's focus, resulting in corresponding
+            ``State.focused_distances_from_edge``, [-90;90], deg.
 
         """
         x = sensor_list(carstate)
-        print(len(x))
-        # print(self.nn(x))
+        accelerator, brake, steering = self.nn.predict(x)[0]
 
         command = Command()
         if carstate.rpm > 8000:
@@ -65,7 +71,10 @@ class MyDriver(Driver):
             command.gear = carstate.gear - 1
         if not command.gear:
             command.gear = carstate.gear or 1
-        self.steer(carstate, 0.0, command)
+
+        command.accelerator = accelerator
+        command.brake = brake
+        command.steering = steering
 
         if self.data_logger:
             self.data_logger.log(carstate, command)
@@ -76,5 +85,6 @@ class MyDriver(Driver):
 if __name__ == "__main__":
     nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
     input_ = np.zeros((22, )).reshape(1, 22)
+    print(input_.shape)
     out = nn.predict(input_)[0]
     print(out)

@@ -1,6 +1,7 @@
 import numpy as np
 import glob
 
+# Collect & pre-process training data.
 # See main for example usage.
 
 
