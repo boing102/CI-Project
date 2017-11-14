@@ -4,6 +4,7 @@ import os
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 import numpy as np
+from keras_0 import PCAFunction
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
@@ -19,27 +20,26 @@ Command: https://github.com/moltob/pytocl/blob/master/pytocl/car.py#L108
 # Given a State return a list of sensors for our NN.
 def sensor_list(carstate):
     return np.concatenate([
-        [carstate.speed_x],
-        [carstate.race_position],
+        [carstate.speed_x],#2
+        [carstate.race_position], #1
         [carstate.angle],
-        carstate.distances_from_edge,
+        carstate.distances_from_edge, #3
         # carstate.current_lap_time,
         # carstate.damage,
-        # carstate.distance_from_start,
-        # carstate.distance_raced,
+        # carstate.distance_from_start: Best possible distance 
+        # carstate.distance_raced, 1: How good or bad your driving
         # carstate.fuel,
         # carstate.gear,
         # carstate.last_lap_time,
         # carstate.opponents,
         # carstate.rpm,
-        # carstate.speed_y,
-        # carstate.speed_z,
+        # carstate.speed_y,2 
+        # carstate.speed_z,2
         # carstate.distance_from_center,
         # carstate.wheel_velocities,
         # carstate.z,
-        # carstate.focused_distances_from_edge
+        # carstate.focused_distances_from_edge 3
     ]).reshape(1, 22)
-
 
 class MyDriver(Driver):
 
@@ -62,6 +62,7 @@ class MyDriver(Driver):
 
         """
         x = sensor_list(carstate)
+
         accelerator, brake, steering = self.nn.predict(x)[0]
 
         command = Command()
