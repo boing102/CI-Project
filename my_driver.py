@@ -4,6 +4,7 @@ import os
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 import numpy as np
+from keras_0 import PCAFunction
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
@@ -92,6 +93,7 @@ class MyDriver(Driver):
 
         # Accelerator, brake & steering are set by the NN.
         x = sensor_list(carstate)
+
         accelerator, brake, steering = self.nn.predict(x)[0]
         command.accelerator = accelerator
         command.brake = brake
