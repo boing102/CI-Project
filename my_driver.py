@@ -53,11 +53,16 @@ Command attributes:
     focus: Direction of driver's focus, resulting in corresponding
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
+#Params
+usePCA = False
+standardize = False
+pcaVars = 7
+
 #Recompute scalar for data normalisation of future data
 xT,_ = data.x_y(data.all_data())
 scaler = pp.StandardScaler().fit(xT)
 xTscaled = scaler.transform(xT)
-pca = PCA(n_components=5)
+pca = PCA(n_components=pcaVars)
 pca.fit(xTscaled)
 
 # Given a State return a list of sensors for our NN.
@@ -100,14 +105,16 @@ class MyDriver(Driver):
         command = Command()
 
         # Accelerator, brake & steering are set by the NN.
-        x_temp = sensor_list(carstate)
-        #Normalize x as follows:
-        x_scaled = scaler.transform(x_temp)
-        #Perform pca on x via the existing transformation:
-        x_new = pca.transform(x_scaled)
-
-        #Apply commands
+        x_new = sensor_list(carstate)
+        #Alter data
+        if standardize:
+            x_new = scaler.transform(x_new)
+        if usePCA:
+            x_new = pca.transform(x_new)
+        
+        #Apply commands: Note, they need to be inverted to original
         accelerator, brake, steering = self.nn.predict(x_new)[0]
+        print(accelerator, brake, steering)
         command.accelerator = accelerator
         command.brake = brake
         command.steering = steering
