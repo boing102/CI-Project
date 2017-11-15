@@ -3,8 +3,11 @@ from keras.models import load_model
 import os
 from pytocl.driver import Driver
 from pytocl.car import State, Command
+from sklearn.decomposition import PCA
 import numpy as np
 from keras_0 import PCAFunction
+import data
+from sklearn import preprocessing as pp
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
@@ -50,7 +53,12 @@ Command attributes:
     focus: Direction of driver's focus, resulting in corresponding
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
-
+#Recompute scalar for data normalisation of future data
+xT,_ = data.x_y(data.all_data())
+scaler = pp.StandardScaler().fit(xT)
+xTscaled = scaler.transform(xT)
+pca = PCA(n_components=5)
+pca.fit(xTscaled)
 
 # Given a State return a list of sensors for our NN.
 def sensor_list(carstate):
@@ -92,9 +100,14 @@ class MyDriver(Driver):
         command = Command()
 
         # Accelerator, brake & steering are set by the NN.
-        x = sensor_list(carstate)
+        x_temp = sensor_list(carstate)
+        #Normalize x as follows:
+        x_scaled = scaler.transform(x_temp)
+        #Perform pca on x via the existing transformation:
+        x_new = pca.transform(x_scaled)
 
-        accelerator, brake, steering = self.nn.predict(x)[0]
+        #Apply commands
+        accelerator, brake, steering = self.nn.predict(x_new)[0]
         command.accelerator = accelerator
         command.brake = brake
         command.steering = steering
