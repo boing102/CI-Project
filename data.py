@@ -1,5 +1,8 @@
 import numpy as np
+import os
 import glob
+
+_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Collect & pre-process training data.
 # See main for example usage.
@@ -8,7 +11,7 @@ import glob
 # Training data from all files concatenated.
 def all_data():
     data = []
-    for filepath in glob.glob("./train_data/*.csv"):
+    for filepath in glob.glob(os.path.join(_dir, "./train_data/*.csv")):
         data.append(np.genfromtxt(filepath, skip_header=True, dtype=float,
                                   delimiter=",", skip_footer=True))
     return np.concatenate(data)
