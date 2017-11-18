@@ -1,7 +1,12 @@
+import csv
+import datetime as dt
 import os
+
 import numpy as np
-from pynput.keyboard import Listener, KeyCode
-from pytocl.car import State, Command
+from pynput.keyboard import KeyCode, Listener
+
+from my_driver import sensor_list
+from pytocl.car import Command, State
 from pytocl.driver import Driver
 
 _dir = os.path.dirname(os.path.realpath(__file__))
@@ -12,41 +17,77 @@ brake = False
 left = False
 right = False
 
-# Each element is a state. Like the training data.
 collected_data = []
+recording = False
+collected_data_path = None
+new_data_path = os.path.join(_dir, "new_data")
+if not os.path.exists(new_data_path):
+    os.makedirs(new_data_path)
+
+
+# Unique path to save recorded data to.
+def get_path():
+    return os.path.join(new_data_path, str(dt.datetime.today()) + ".csv")
+
+
+# Save one row of collected training data.
+def collect_data(carstate, c):
+    row = sensor_list(carstate).tolist()
+    print(row)
+    collected_data.append(row[0])
+
+
+# Writes the collected data to collected_data_path.
+def save_collected_data():
+    with open(collected_data_path, "w") as f:
+        writer = csv.writer(f)
+        writer.writerow([","])
+        writer.writerows(collected_data)
 
 
 # Switch a WASD key to pressed state.
 def on_press(key):
-    if key == KeyCode.from_char("w"):
+    if key == KeyCode.from_char("j"):
         global accelerate
         accelerate = True
-    if key == KeyCode.from_char("s"):
+    if key == KeyCode.from_char("k"):
         global brake
         brake = True
-    if key == KeyCode.from_char("a"):
+    if key == KeyCode.from_char("d"):
         global left
         left = True
-    if key == KeyCode.from_char("d"):
+    if key == KeyCode.from_char("f"):
         global right
         right = True
+    if key == KeyCode.from_char("r"):
+        global recording
+        global collected_data
+        global collected_data_path
+        if not recording:
+            collected_data = []
+            collected_data_path = get_path()
+            print("Recording data")
+            print(len(collected_data))
+        else:
+            save_collected_data()
+            print("Saved collected data to: " + collected_data_path)
+        recording = not recording
 
 
 # Switch a WASD key to released state.
 def on_release(key):
-    if key == KeyCode.from_char("w"):
+    if key == KeyCode.from_char("j"):
         global accelerate
         accelerate = False
-    if key == KeyCode.from_char("s"):
+    if key == KeyCode.from_char("k"):
         global brake
         brake = False
-    if key == KeyCode.from_char("a"):
+    if key == KeyCode.from_char("d"):
         global left
         left = False
-    if key == KeyCode.from_char("d"):
+    if key == KeyCode.from_char("f"):
         global right
         right = False
-
 
 class DataCollectionDriver(Driver):
 
@@ -65,16 +106,21 @@ class DataCollectionDriver(Driver):
     # Set acceleration, brake and gear.
     def acc_brake(self, command, carstate):
         if accelerate:
+            # A strange target rule, because speed is incorrectly reported?
             target = 100 if carstate.speed_x < 20 else carstate.speed_x ** 1.5
             self.accelerate(carstate, target, command)
+            # Come out of neutral.
             if command.gear < 1:
                 command.gear = 1
-            if carstate.speed_x < 0:
+            # To accelerate when reversing, we first need to stop.
+            if brake or carstate.speed_x < 0:
                 command.brake = 1
-        if brake:
+        elif brake:
+            # To reverse we apply full accelerator in reverse gear.
             if carstate.speed_x < 0.1:
                 command.gear = -1
                 command.accelerator = 1
+            # Else we apply full brake, trying to come to a stop.
             else:
                 command.brake = 1
 
@@ -83,4 +129,6 @@ class DataCollectionDriver(Driver):
         command = Command()
         self.steer(command, carstate)
         self.acc_brake(command, carstate)
+        if recording:
+            collect_data(carstate, command)
         return command
