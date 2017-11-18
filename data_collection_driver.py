@@ -6,13 +6,17 @@ from pytocl.driver import Driver
 
 _dir = os.path.dirname(os.path.realpath(__file__))
 
-# Whether keys are currently pressed.
+# Whether WASD keys are currently pressed.
 accelerate = False
 brake = False
 left = False
 right = False
 
+# Each element is a state. Like the training data.
+collected_data = []
 
+
+# Switch a WASD key to pressed state.
 def on_press(key):
     if key == KeyCode.from_char("w"):
         global accelerate
@@ -28,6 +32,7 @@ def on_press(key):
         right = True
 
 
+# Switch a WASD key to released state.
 def on_release(key):
     if key == KeyCode.from_char("w"):
         global accelerate
@@ -45,26 +50,37 @@ def on_release(key):
 
 class DataCollectionDriver(Driver):
 
+    # Start listening for WASD key actions on second thread.
     def listener(self):
         print("Started listener")
         return Listener(on_press=on_press, on_release=on_release)
 
-    def steer(self, current_lap_time):
+    # Steer using the inherited steering control method.
+    def steer(self, command, carstate):
         if right:
-            return self.steering_ctrl.control(-1, current_lap_time) 
-        if left:
-            return self.steering_ctrl.control(1, current_lap_time) 
+            command.steering = self.steering_ctrl.control(-1, carstate.current_lap_time) 
+        elif left:
+            command.steering = self.steering_ctrl.control(1, carstate.current_lap_time) 
 
+    # Set acceleration, brake and gear.
     def acc_brake(self, command, carstate):
         if accelerate:
-            self.accelerate(carstate, carstate.speed_x + 500, command)
-        if accelerate and command.gear < 1:
-            command.gear = 1
-        command.brake = int(brake)
+            target = 100 if carstate.speed_x < 20 else carstate.speed_x ** 1.5
+            self.accelerate(carstate, target, command)
+            if command.gear < 1:
+                command.gear = 1
+            if carstate.speed_x < 0:
+                command.brake = 1
+        if brake:
+            if carstate.speed_x < 0.1:
+                command.gear = -1
+                command.accelerator = 1
+            else:
+                command.brake = 1
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
         command = Command()
+        self.steer(command, carstate)
         self.acc_brake(command, carstate)
-        command.steering = self.steer(carstate.current_lap_time)
         return command
