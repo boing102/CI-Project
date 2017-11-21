@@ -97,8 +97,17 @@ class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
         self.nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
-	super(MyDriver, self).__init__(*args, **kwargs)
-	
+        self.last_command = None
+        super(MyDriver, self).__init__(*args, **kwargs)
+
+    def merge_with_last_command(self, next_command):
+        if self.last_command is None:
+            return next_command
+        alpha = 0.2
+        next_command.accelerator = self.last_command.accelerator * (1 - alpha) + next_command.accelerator * alpha
+        next_command.brake = self.last_command.brake * (1 - alpha) + next_command.brake * alpha
+        next_command.steering = self.last_command.accelerator * (1 - alpha) + next_command.steering * alpha
+
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
 
@@ -111,14 +120,14 @@ class MyDriver(Driver):
             x_new = scaler.transform(x_new)
         if usePCA:
             x_new = pca.transform(x_new)
-        
+
         #Apply commands: Note, they need to be inverted to original
         accelerator, brake, steering = self.nn.predict(x_new)[0]
         #print(accelerator, brake, steering)
         command.accelerator = accelerator
         command.brake = brake
         command.steering = steering
-	
+
         # Gear is set by a deterministic rule.
         if carstate.rpm > 8000:
             command.gear = carstate.gear + 1
@@ -132,7 +141,9 @@ class MyDriver(Driver):
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
-        return command
+        # Merge last Command with this Command.
+        self.last_command = self.merge_with_last_command(command)
+        return self.last_command
 
 
 if __name__ == "__main__":
