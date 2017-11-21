@@ -13,7 +13,6 @@ import pickle
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = "./models/sklearn.pickle"
-
 """
 Definitions of State and Command:
 State: https://github.com/moltob/pytocl/blob/master/pytocl/car.py#L28
@@ -89,21 +88,30 @@ class MyDriver(Driver):
         with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
         super(MyDriver, self).__init__(*args, **kwargs)
+        self.reset_counter = 0
+        self.reverse_counter = 0
+        self.reverse_start = False
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-
+        
         command = Command()
         x_new = sensor_list(carstate)
         x_new_norm = normalize(x_new)
         
         #Apply commands: Note, they need to be inverted to original
         prediction = self.nn.predict(x_new_norm)[0]
+        
         command.accelerator = prediction[0]
         command.brake = prediction[1]
-        steering = np.absolute(prediction[2])
-        command.steering = prediction[2] if steering > 0.000001 else 0
-        # command.steering = prediction[2]
+        steering = prediction[2]
+        
+        if x_new[0][0] > 130:
+            steering = np.absolute(prediction[2])
+            steering = prediction[2] if steering > 0.01 else 0
+
+        command.steering = steering
+
 
         # Gear is set by a deterministic rule.
         if carstate.rpm > 8000:
@@ -113,8 +121,26 @@ class MyDriver(Driver):
         if not command.gear:
             command.gear = carstate.gear or 1
 
-        # We don't set driver focus, or use focus edges.
+        print(x_new[0][0], self.reset_counter)
+        # command.steering = prediction[2]
+        self.reset_counter += 1
+        if x_new[0][0] < 2 and self.reset_counter > 200:
+            command.gear = -1
+            command.accelerator = 1
+            self.reverse_start = True
 
+        if self.reverse_start:
+            command.gear = 1
+            command.accelerator = 1
+            if x_new[0][0] > 10:
+                self.reverse_start = False
+
+
+
+        # if self.reset_counter == 3:
+        #     command.gear = 1
+        #     command.accelerator = 1
+        # We don't set driver focus, or use focus edges.
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
