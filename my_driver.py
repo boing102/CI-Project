@@ -5,6 +5,7 @@ from pytocl.driver import Driver
 from pytocl.car import State, Command
 from sklearn.decomposition import PCA
 import numpy as np
+from keras_0 import PCAFunction
 import data
 from sklearn import preprocessing as pp
 
@@ -52,28 +53,26 @@ Command attributes:
     focus: Direction of driver's focus, resulting in corresponding
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
-
-# Parameters.
-usePCA = True
+#Params
+usePCA = False
 standardize = True
 pcaVars = 7
 
-# Recompute scalar for data normalisation of future data.
-xT, _ = data.x_y(data.all_data())
+#Recompute scalar for data normalisation of future data
+xT,_ = data.x_y(data.all_data())
 scaler = pp.StandardScaler().fit(xT)
 xTscaled = scaler.transform(xT)
 pca = PCA(n_components=pcaVars)
 pca.fit(xTscaled)
 
-
 # Given a State return a list of sensors for our NN.
-def sensor_list(carstate: State):
+def sensor_list(carstate):
     # Speed from the three velocities x, y, z.
     speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
                                            carstate.speed_z)]))
     return np.concatenate([
-        [speed],
-        [carstate.race_position],
+        [speed*(18/5)],
+        [carstate.distance_from_center],
         [carstate.angle],
         carstate.distances_from_edge,
         # carstate.current_lap_time,
@@ -98,8 +97,8 @@ class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
         self.nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
-        super(MyDriver, self).__init__(*args, **kwargs)
-
+	super(MyDriver, self).__init__(*args, **kwargs)
+	
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
 
@@ -107,19 +106,19 @@ class MyDriver(Driver):
 
         # Accelerator, brake & steering are set by the NN.
         x_new = sensor_list(carstate)
-        # Alter data.
+        #Alter data
         if standardize:
             x_new = scaler.transform(x_new)
         if usePCA:
             x_new = pca.transform(x_new)
-
-        # Apply commands: Note, they need to be inverted to original.
+        
+        #Apply commands: Note, they need to be inverted to original
         accelerator, brake, steering = self.nn.predict(x_new)[0]
-        print(accelerator, brake, steering)
+        #print(accelerator, brake, steering)
         command.accelerator = accelerator
         command.brake = brake
         command.steering = steering
-
+	
         # Gear is set by a deterministic rule.
         if carstate.rpm > 8000:
             command.gear = carstate.gear + 1
