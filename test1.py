@@ -4,12 +4,13 @@ from sklearn.preprocessing import normalize
 from sklearn.preprocessing import scale
 import numpy as np
 import pickle
+from data import all_data, x_y, split_data
 
-data = np.genfromtxt('./train_data/alpine-1.csv', skip_header=1, dtype=float, delimiter=',', skip_footer=1)
-x_train = data[0:13600,3:25]
-y_train = data[0:13600,0:3]
-x_test = data[13600:,3:25]
-y_test = data[13600:,0:3]
+tr, _, te = split_data(all_data(), 4, 0, 1)
+x_train = tr[:,3:25]
+y_train = tr[:,0:3]
+x_test = te[:,3:25]
+y_test = te[:,0:3]
 
 x_train_norm = normalize(x_train)
 x_test_norm = normalize(x_test)

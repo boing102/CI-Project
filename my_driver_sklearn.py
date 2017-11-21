@@ -12,7 +12,7 @@ import pickle
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
-
+path_to_model = "./models/sklearn.pickle"
 
 """
 Definitions of State and Command:
@@ -61,8 +61,8 @@ def sensor_list(carstate):
     speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
                                            carstate.speed_z)]))
     return np.concatenate([
-        [speed],
-        [carstate.race_position],
+        [speed * (18/5)],
+        [carstate.distance_from_center],
         [carstate.angle],
         carstate.distances_from_edge,
         # carstate.current_lap_time,
@@ -86,7 +86,7 @@ def sensor_list(carstate):
 class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
-        with open('./models/sklearn.pickle', 'rb') as handle:
+        with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
         super(MyDriver, self).__init__(*args, **kwargs)
 
@@ -94,14 +94,16 @@ class MyDriver(Driver):
     def drive(self, carstate: State) -> Command:
 
         command = Command()
-
         x_new = sensor_list(carstate)
         x_new_norm = normalize(x_new)
-
+        
         #Apply commands: Note, they need to be inverted to original
         prediction = self.nn.predict(x_new_norm)[0]
         command.accelerator = prediction[0]
         command.brake = prediction[1]
+        print(carstate.speed_x, carstate.speed_y, carstate.speed_z)
+        if(command.brake > 0):
+            print(prediction)
         command.steering = prediction[2]
 
         # Gear is set by a deterministic rule.
@@ -121,7 +123,7 @@ class MyDriver(Driver):
 
 
 if __name__ == "__main__":
-    nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
+    nn = load_model(os.path.join(_dir, "./models/sklearn.pickle"))
     input_ = np.zeros((22, )).reshape(1, 22)
     print(input_.shape)
     out = nn.predict(input_)[0]
