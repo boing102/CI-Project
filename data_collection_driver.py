@@ -10,6 +10,8 @@ from pytocl.car import Command, State
 from pytocl.driver import Driver
 
 _dir = os.path.dirname(os.path.realpath(__file__))
+use_recovery = False
+
 
 # Whether WASD keys are currently pressed.
 accelerate = False
@@ -89,12 +91,41 @@ def on_release(key):
         global right
         right = False
 
+
 class DataCollectionDriver(Driver):
+
+    def __init__(self, *args, **kwargs):
+        self.state = "normal"
+        self.slow_counter = 0
+        self.reverse_counter = 0
+        super(DataCollectionDriver, self).__init__(*args, **kwargs)
 
     # Start listening for WASD key actions on second thread.
     def listener(self):
         print("Started listener")
         return Listener(on_press=on_press, on_release=on_release)
+
+    def recovery(self, carstate, command):
+        print("State {0}".format(self.state))
+        print("slow_counter {0}".format(self.slow_counter))
+        print("reverse_counter {0}".format(self.reverse_counter))
+        if self.state == "normal":
+            if carstate.speed_x < 1:
+                self.slow_counter += 1
+            else:
+                self.slow_counter = 0
+            if self.slow_counter > 100:
+                self.state = "reverse"
+                self.reverse_counter = 0
+        if self.state == "reverse":
+            command.gear = -1
+            command.accelerator = 1
+            self.reverse_counter += 1
+            if self.reverse_counter > 100:
+                self.state = "normal"
+                self.slow_counter = 0
+                command.gear = 1
+        print(command)
 
     # Steer using the inherited steering control method.
     def steer(self, command, carstate):
@@ -131,4 +162,6 @@ class DataCollectionDriver(Driver):
         self.acc_brake(command, carstate)
         if recording:
             collect_data(carstate, command)
+        if use_recovery:
+            self.recovery(carstate, command)
         return command
