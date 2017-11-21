@@ -1,16 +1,18 @@
 import logging
-from keras.models import load_model
 import os
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 from sklearn.decomposition import PCA
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import scale
 import numpy as np
-import data
-from sklearn import preprocessing as pp
+import pickle
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
-
+path_to_model = "./models/sklearn.pickle"
 
 """
 Definitions of State and Command:
@@ -53,27 +55,14 @@ Command attributes:
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
 
-# Parameters.
-usePCA = True
-standardize = True
-pcaVars = 7
-
-# Recompute scalar for data normalisation of future data.
-xT, _ = data.x_y(data.all_data())
-scaler = pp.StandardScaler().fit(xT)
-xTscaled = scaler.transform(xT)
-pca = PCA(n_components=pcaVars)
-pca.fit(xTscaled)
-
-
 # Given a State return a list of sensors for our NN.
-def sensor_list(carstate: State):
+def sensor_list(carstate):
     # Speed from the three velocities x, y, z.
     speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
                                            carstate.speed_z)]))
     return np.concatenate([
-        [speed],
-        [carstate.race_position],
+        [speed * (18/5)],
+        [carstate.distance_from_center],
         [carstate.angle],
         carstate.distances_from_edge,
         # carstate.current_lap_time,
@@ -97,28 +86,24 @@ def sensor_list(carstate: State):
 class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
-        self.nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
+        with open(path_to_model, 'rb') as handle:
+            self.nn = pickle.load(handle)
         super(MyDriver, self).__init__(*args, **kwargs)
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
 
         command = Command()
-
-        # Accelerator, brake & steering are set by the NN.
         x_new = sensor_list(carstate)
-        # Alter data.
-        if standardize:
-            x_new = scaler.transform(x_new)
-        if usePCA:
-            x_new = pca.transform(x_new)
-
-        # Apply commands: Note, they need to be inverted to original.
-        accelerator, brake, steering = self.nn.predict(x_new)[0]
-        print(accelerator, brake, steering)
-        command.accelerator = accelerator
-        command.brake = brake
-        command.steering = steering
+        x_new_norm = normalize(x_new)
+        
+        #Apply commands: Note, they need to be inverted to original
+        prediction = self.nn.predict(x_new_norm)[0]
+        command.accelerator = prediction[0]
+        command.brake = prediction[1]
+        steering = np.absolute(prediction[2])
+        command.steering = prediction[2] if steering > 0.01 else 0
+        # command.steering = prediction[2]
 
         # Gear is set by a deterministic rule.
         if carstate.rpm > 8000:
@@ -137,7 +122,7 @@ class MyDriver(Driver):
 
 
 if __name__ == "__main__":
-    nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
+    nn = load_model(os.path.join(_dir, "./models/sklearn.pickle"))
     input_ = np.zeros((22, )).reshape(1, 22)
     print(input_.shape)
     out = nn.predict(input_)[0]

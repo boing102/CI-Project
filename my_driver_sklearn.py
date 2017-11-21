@@ -101,10 +101,9 @@ class MyDriver(Driver):
         prediction = self.nn.predict(x_new_norm)[0]
         command.accelerator = prediction[0]
         command.brake = prediction[1]
-        print(carstate.speed_x, carstate.speed_y, carstate.speed_z)
-        if(command.brake > 0):
-            print(prediction)
-        command.steering = prediction[2]
+        steering = np.absolute(prediction[2])
+        command.steering = prediction[2] if steering > 0.000001 else 0
+        # command.steering = prediction[2]
 
         # Gear is set by a deterministic rule.
         if carstate.rpm > 8000:

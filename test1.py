@@ -14,9 +14,9 @@ y_test = te[:,0:3]
 
 x_train_norm = normalize(x_train)
 x_test_norm = normalize(x_test)
-
+print(x_train_norm.shape)
 nn = MLPRegressor(
-    hidden_layer_sizes=(28,28,28))
+    hidden_layer_sizes=(50,50, 50, 50), max_iter=1000)
 
 n = nn.fit(x_train_norm, y_train)
 
@@ -26,8 +26,8 @@ n = nn.fit(x_train_norm, y_train)
 score = nn.score(x_test_norm, y_test)
 print('R2 score is (1.0 is best)', score)
 
-prediction = nn.predict(x_test_norm[1:3,:])
-print("prediction ", prediction, " true ", y_test[1:3,:])
+# prediction = nn.predict(x_test_norm[1:3,:])
+# print("prediction ", prediction, " true ", y_test[1:3,:])
 
 with open('./models/sklearn.pickle', 'wb') as handle:
     pickle.dump(nn, handle)
