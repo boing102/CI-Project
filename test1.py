@@ -19,7 +19,7 @@ y_test = te[:,0:3]
 
 x_train_norm = normalize(x_train)
 x_test_norm = normalize(x_test)
-pca = PCA(n_components=12, random_state=RANDOM_SEED)
+pca = PCA(n_components=22, random_state=RANDOM_SEED)
 pca.fit(x_train_norm)
 x_train_norm = pca.transform(x_train_norm)
 x_test_norm = pca.transform(x_test_norm)

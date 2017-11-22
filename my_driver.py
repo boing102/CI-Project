@@ -9,10 +9,12 @@ from sklearn.preprocessing import normalize
 from sklearn.preprocessing import scale
 import numpy as np
 import pickle
+from sklearn.decomposition import PCA
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = "./models/sklearn.pickle"
+path_to_pca = "./models/pca.pickle"
 """
 Definitions of State and Command:
 State: https://github.com/moltob/pytocl/blob/master/pytocl/car.py#L28
@@ -54,39 +56,13 @@ Command attributes:
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
 
-# Given a State return a list of sensors for our NN.
-def sensor_list(carstate):
-    # Speed from the three velocities x, y, z.
-    speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
-                                           carstate.speed_z)]))
-    return np.concatenate([
-        [speed * (18/5)],
-        [carstate.distance_from_center],
-        [carstate.angle],
-        carstate.distances_from_edge,
-        # carstate.current_lap_time,
-        # carstate.damage,
-        # carstate.distance_from_start,
-        # carstate.distance_raced,
-        # carstate.fuel,
-        #[carstate.gear],
-        # carstate.last_lap_time,
-        # carstate.opponents,
-        # carstate.rpm,
-        # carstate.speed_y,
-        # carstate.speed_z,
-        # carstate.distance_from_center,
-        # carstate.wheel_velocities,
-        # carstate.z,
-        # carstate.focused_distances_from_edge
-    ]).reshape(1, 22)
-
-
 class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
         with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
+        with open(path_to_pca, 'rb') as handle:
+            self.pca = pickle.load(handle)
         super(MyDriver, self).__init__(*args, **kwargs)
         self.reset_counter = 0
         self.reverse_counter = 0
@@ -94,13 +70,15 @@ class MyDriver(Driver):
         self.old_distance = 0
         self.reverseCondition = False
         self.nn_counter = 0
+        self.speed = 0
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
         
         command = Command()
-        x_new = sensor_list(carstate)
+        x_new = self.sensor_list(carstate)
         x_new_norm = normalize(x_new)
+        x_new_norm = self.pca.transform(x_new_norm)
         
         #Apply commands: Note, they need to be inverted to original
         prediction = self.nn.predict(x_new_norm)[0]
@@ -109,17 +87,25 @@ class MyDriver(Driver):
         command.brake = prediction[1] #To test for correction
         steering = prediction[2]
         #If we drive fast, don't steer sharply
-        if x_new[0][0] > 130:
-            steering = np.absolute(prediction[2])
-            steering = prediction[2] if steering > 0.01 else 0
+        if self.speed < 100:
+            steering = steering
+            if np.absolute(steering) > 0.25:
+                command.accelerator = command.accelerator * 0.3
+        elif self.speed > 100 and self.speed < 130:
+            steering = steering * 0.9
+        else:
+            steering = steering * 0.8
+
+        # if command.brake > 0.3:
+        #     steering = 0
 
         command.steering = steering
 
 
         # Gear is set by a deterministic rule.
-        if carstate.rpm > 8000:
+        if carstate.rpm > 9000:
             command.gear = carstate.gear + 1
-        if carstate.rpm < 2500:
+        if carstate.rpm < 4500:
             command.gear = carstate.gear - 1
         if not command.gear:
             command.gear = carstate.gear or 1
@@ -141,11 +127,11 @@ class MyDriver(Driver):
                 command.brake = 1
                 command.accelerator = 0
             #After certain moment, let NN take over again:
-            if self.nn_counter > 600 and carstate.distance_from_center <0.1:
+            if (self.nn_counter > 600 or self.speed > 35) and carstate.distance_from_center <0.1:
                 self.reverse_start = False
                 self.nn_counter = 0
 
-        if (x_new[0][0] < 1 and self.reset_counter> 100 and not self.reverse_start) or self.reverseCondition:
+        if (self.speed < 1 and self.reset_counter> 100 and not self.reverse_start) or self.reverseCondition:
             self.reverse_counter +=1
             self.reverseCondition = True
             #Handle gears
@@ -167,13 +153,39 @@ class MyDriver(Driver):
              print("Wrong way, yo")
         #Update distance
         self.old_distance =carstate.distance_from_start
-        print(self.reverseCondition, self.reverse_start,x_new[0][0],command.steering, carstate.angle, carstate.distance_from_center)
+        print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
  # We don't set driver focus, or use focus edges.
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
         return command
+        # Given a State return a list of sensors for our NN.
 
+    def sensor_list(self, carstate):
+        # Speed from the three velocities x, y, z.
+        self.speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
+                                               carstate.speed_z)])) * (18/5)
+        return np.concatenate([
+            [self.speed],
+            [carstate.distance_from_center],
+            [carstate.angle],
+            carstate.distances_from_edge,
+            # carstate.current_lap_time,
+            # carstate.damage,
+            # carstate.distance_from_start,
+            # carstate.distance_raced,
+            # carstate.fuel,
+            #[carstate.gear],
+            # carstate.last_lap_time,
+            # carstate.opponents,
+            # carstate.rpm,
+            # carstate.speed_y,
+            # carstate.speed_z,
+            # carstate.distance_from_center,
+            # carstate.wheel_velocities,
+            # carstate.z,
+            # carstate.focused_distances_from_edge
+        ]).reshape(1, 22)
 
 if __name__ == "__main__":
     nn = load_model(os.path.join(_dir, "./models/sklearn.pickle"))
