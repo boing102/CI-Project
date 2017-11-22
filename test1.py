@@ -5,8 +5,13 @@ from sklearn.preprocessing import scale
 import numpy as np
 import pickle
 from data import all_data, x_y, split_data
+from sklearn.decomposition import PCA
 
+# RANDOM_SEED = 5
+RANDOM_SEED = np.random.randint(1)
 tr, _, te = split_data(all_data(), 4, 0, 1)
+np.random.shuffle(tr)
+np.random.shuffle(te)
 x_train = tr[:,3:25]
 y_train = tr[:,0:3]
 x_test = te[:,3:25]
@@ -14,15 +19,16 @@ y_test = te[:,0:3]
 
 x_train_norm = normalize(x_train)
 x_test_norm = normalize(x_test)
-print(x_train_norm.shape)
+pca = PCA(n_components=12, random_state=RANDOM_SEED)
+pca.fit(x_train_norm)
+x_train_norm = pca.transform(x_train_norm)
+x_test_norm = pca.transform(x_test_norm)
+
 nn = MLPRegressor(
-    hidden_layer_sizes=(50,50, 50, 50), max_iter=1000)
+    hidden_layer_sizes=(50,50, 50, 50), random_state=RANDOM_SEED)
 
 n = nn.fit(x_train_norm, y_train)
 
-# data_test = np.genfromtxt('/home/student/Downloads/train_data/aalborg.csv', skip_header=1, dtype=float, delimiter=',', skip_footer=1)
-# x_test = data_test[0:500,0:3]
-# y_test = data_test[0:500,3:25]
 score = nn.score(x_test_norm, y_test)
 print('R2 score is (1.0 is best)', score)
 
@@ -31,3 +37,6 @@ print('R2 score is (1.0 is best)', score)
 
 with open('./models/sklearn.pickle', 'wb') as handle:
     pickle.dump(nn, handle)
+
+with open('./models/pca.pickle', 'wb') as handle:
+    pickle.dump(pca, handle)
