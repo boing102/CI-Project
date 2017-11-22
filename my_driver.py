@@ -1,18 +1,18 @@
 import logging
-from keras.models import load_model
 import os
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 from sklearn.decomposition import PCA
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import scale
 import numpy as np
-from keras_0 import PCAFunction
-import data
-from sklearn import preprocessing as pp
+import pickle
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
-
-
+path_to_model = "./models/sklearn.pickle"
 """
 Definitions of State and Command:
 State: https://github.com/moltob/pytocl/blob/master/pytocl/car.py#L28
@@ -53,17 +53,6 @@ Command attributes:
     focus: Direction of driver's focus, resulting in corresponding
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
-#Params
-usePCA = False
-standardize = True
-pcaVars = 7
-
-#Recompute scalar for data normalisation of future data
-xT,_ = data.x_y(data.all_data())
-scaler = pp.StandardScaler().fit(xT)
-xTscaled = scaler.transform(xT)
-pca = PCA(n_components=pcaVars)
-pca.fit(xTscaled)
 
 # Given a State return a list of sensors for our NN.
 def sensor_list(carstate):
@@ -71,7 +60,7 @@ def sensor_list(carstate):
     speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
                                            carstate.speed_z)]))
     return np.concatenate([
-        [speed*(18/5)],
+        [speed * (18/5)],
         [carstate.distance_from_center],
         [carstate.angle],
         carstate.distances_from_edge,
@@ -80,7 +69,7 @@ def sensor_list(carstate):
         # carstate.distance_from_start,
         # carstate.distance_raced,
         # carstate.fuel,
-        # carstate.gear,
+        #[carstate.gear],
         # carstate.last_lap_time,
         # carstate.opponents,
         # carstate.rpm,
@@ -96,29 +85,37 @@ def sensor_list(carstate):
 class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
-        self.nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
-    super(MyDriver, self).__init__(*args, **kwargs)
-    
+        with open(path_to_model, 'rb') as handle:
+            self.nn = pickle.load(handle)
+        super(MyDriver, self).__init__(*args, **kwargs)
+        self.reset_counter = 0
+        self.reverse_counter = 0
+        self.reverse_start = False
+        self.old_distance = 0
+        self.reverseCondition = False
+        self.nn_counter = 0
+
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-
+        
         command = Command()
-
-        # Accelerator, brake & steering are set by the NN.
         x_new = sensor_list(carstate)
-        #Alter data
-        if standardize:
-            x_new = scaler.transform(x_new)
-        if usePCA:
-            x_new = pca.transform(x_new)
+        x_new_norm = normalize(x_new)
         
         #Apply commands: Note, they need to be inverted to original
-        accelerator, brake, steering = self.nn.predict(x_new)[0]
-        #print(accelerator, brake, steering)
-        command.accelerator = accelerator
-        command.brake = brake
+        prediction = self.nn.predict(x_new_norm)[0]
+        
+        command.accelerator = prediction[0]
+        command.brake = prediction[1] #To test for correction
+        steering = prediction[2]
+        #If we drive fast, don't steer sharply
+        if x_new[0][0] > 130:
+            steering = np.absolute(prediction[2])
+            steering = prediction[2] if steering > 0.01 else 0
+
         command.steering = steering
-    
+
+
         # Gear is set by a deterministic rule.
         if carstate.rpm > 8000:
             command.gear = carstate.gear + 1
@@ -127,8 +124,51 @@ class MyDriver(Driver):
         if not command.gear:
             command.gear = carstate.gear or 1
 
-        # We don't set driver focus, or use focus edges.
+        # command.steering = prediction[2]
 
+        #Hardcode when we are stuck,not at the start
+        self.reset_counter += 1
+        if self.reverse_start:
+            self.nn_counter +=1
+            #Handle gears
+            command.gear = 1 
+            command.brake = 0
+            command.accelerator = 0.33
+            command.steering = (carstate.angle - 2*carstate.distance_from_center)/(180/21)
+            print(self.nn_counter)
+            #Brake first
+            if self.nn_counter < 50:
+                command.brake = 1
+                command.accelerator = 0
+            #After certain moment, let NN take over again:
+            if self.nn_counter > 600 and carstate.distance_from_center <0.1:
+                self.reverse_start = False
+                self.nn_counter = 0
+
+        if (x_new[0][0] < 1 and self.reset_counter> 100 and not self.reverse_start) or self.reverseCondition:
+            self.reverse_counter +=1
+            self.reverseCondition = True
+            #Handle gears
+            a = carstate.angle
+            c = 1
+            command.steering = (-a)/(180/21)    
+            command.gear = -1
+            command.accelerator = 0.5
+            command.brake = 0
+            if self.reverse_counter >100:
+                  self.reverse_counter = 0
+                  self.reverse_start = True
+                  self.reverseCondition = False
+                  command.brake = 1
+
+        #Hardcode when we are moving into the wrongdirection, assume nose backwards
+        if (False and carstate.distance_from_start < self.old_distance):
+             self.reverseCondition = True
+             print("Wrong way, yo")
+        #Update distance
+        self.old_distance =carstate.distance_from_start
+        print(self.reverseCondition, self.reverse_start,x_new[0][0],command.steering, carstate.angle, carstate.distance_from_center)
+ # We don't set driver focus, or use focus edges.
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
@@ -136,7 +176,7 @@ class MyDriver(Driver):
 
 
 if __name__ == "__main__":
-    nn = load_model(os.path.join(_dir, "./models/keras.pickle"))
+    nn = load_model(os.path.join(_dir, "./models/sklearn.pickle"))
     input_ = np.zeros((22, )).reshape(1, 22)
     print(input_.shape)
     out = nn.predict(input_)[0]
