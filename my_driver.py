@@ -2,19 +2,15 @@ import logging
 import os
 from pytocl.driver import Driver
 from pytocl.car import State, Command
-from sklearn.decomposition import PCA
 from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
-from sklearn.preprocessing import scale
 import numpy as np
 import pickle
-from sklearn.decomposition import PCA
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = "./models/sklearn.pickle"
-path_to_pca = "./models/pca.pickle"
 """
 Definitions of State and Command:
 State: https://github.com/moltob/pytocl/blob/master/pytocl/car.py#L28
@@ -61,8 +57,6 @@ class MyDriver(Driver):
     def __init__(self, *args, **kwargs):
         with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
-        with open(path_to_pca, 'rb') as handle:
-            self.pca = pickle.load(handle)
         super(MyDriver, self).__init__(*args, **kwargs)
         self.reset_counter = 0
         self.reverse_counter = 0
@@ -78,7 +72,6 @@ class MyDriver(Driver):
         command = Command()
         x_new = self.sensor_list(carstate)
         x_new_norm = normalize(x_new)
-        x_new_norm = self.pca.transform(x_new_norm)
         
         #Apply commands: Note, they need to be inverted to original
         prediction = self.nn.predict(x_new_norm)[0]
