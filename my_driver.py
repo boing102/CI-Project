@@ -7,12 +7,14 @@ from pytocl.car import State, Command
 from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
+from sklearn.decomposition import PCA
 import numpy as np
 import pickle
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
-path_to_model = "./models/sklearn.pickle"
+path_to_model = os.path.join(_dir, "models/sklearn.pickle")
+path_to_pca = os.path.join(_dir, "models/pca.pickle")
 
 """
 Definitions of State and Command:
@@ -96,6 +98,9 @@ class MyDriver(Driver):
         self.car_id = set_car_id()
         with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
+        with open(path_to_pca, 'rb') as handle:
+            self.pca = pickle.load(handle)
+
         super(MyDriver, self).__init__(*args, **kwargs)
         self.reset_counter = 0
         self.reverse_counter = 0
@@ -109,13 +114,12 @@ class MyDriver(Driver):
     def drive(self, carstate: State) -> Command:
         other_car_id = get_other_car_id(self.car_id)
         other_carstate = load_carstate(other_car_id)
-        print(self.car_id, other_car_id)
-        print(type(other_carstate))
 
         command = Command()
         x_new = self.sensor_list(carstate)
-        x_new_norm = normalize(x_new)
         
+        x_new_norm = normalize(x_new)
+        x_new_norm = self.pca.transform(x_new_norm)
         #Apply commands: Note, they need to be inverted to original
         prediction = self.nn.predict(x_new_norm)[0]
         
@@ -128,9 +132,9 @@ class MyDriver(Driver):
             if np.absolute(steering) > 0.25:
                 command.accelerator = command.accelerator * 0.3
         elif self.speed > 100 and self.speed < 130:
-            steering = steering * 0.9
+            steering = steering * 0.7
         else:
-            steering = steering * 0.8
+            steering = steering * 0.5
 
         # if command.brake > 0.3:
         #     steering = 0

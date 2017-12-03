@@ -5,6 +5,7 @@ from sklearn.preprocessing import scale
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pickle
+from sklearn.decomposition import PCA
 from data import all_data, x_y, split_data
 
 RANDOM_SEED = 5
@@ -16,9 +17,13 @@ x_train = tr[:,3:25]
 y_train = tr[:,0:3]
 x_test = te[:,3:25]
 y_test = te[:,0:3]
+pca = PCA(n_components=7)
 
 x_train_norm = normalize(x_train)
 x_test_norm = normalize(x_test)
+
+x_train_norm = pca.fit_transform(x_train_norm)
+x_test_norm = pca.transform(x_test_norm)
 
 # # scaler = StandardScaler()
 # # x_train_scale = scaler.fit_transform(x_train)
@@ -40,3 +45,6 @@ print('R2 score is (1.0 is best)', score)
 
 with open('./models/sklearn.pickle', 'wb') as handle:
     pickle.dump(nn, handle)
+
+with open('./models/pca.pickle', 'wb') as handle:
+    pickle.dump(pca, handle)
