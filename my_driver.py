@@ -1,5 +1,7 @@
 import logging
 import os
+import sys
+import time
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 from sklearn.neural_network import MLPRegressor
@@ -11,6 +13,7 @@ import pickle
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = "./models/sklearn.pickle"
+
 """
 Definitions of State and Command:
 State: https://github.com/moltob/pytocl/blob/master/pytocl/car.py#L28
@@ -52,9 +55,45 @@ Command attributes:
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
 
+# Path of carstate given car ID.
+carstate_filepath = lambda car_id: os.path.join(_dir, "carstate-{0}".format(car_id))
+
+
+# Save carstate to file.
+def save_carstate(car_id, carstate):
+    with open(carstate_filepath(car_id), "wb") as f:
+        pickle.dump(carstate, f)
+
+
+# Load carstate given car ID.
+# May return None on rare occasion.
+def load_carstate(car_id):
+    try:
+        with open(carstate_filepath(car_id), "rb") as f:
+            return pickle.load(f)
+    except:
+        return None
+
+# Adds random ID to a car ID file and return ID.
+def set_car_id():
+    car_id = np.random.randint(sys.maxsize)
+    with open(os.path.join(_dir, "car_ids"), "a") as f:
+        f.write("\n{0}".format(car_id))
+    return car_id
+
+
+# Get other car ID from list of IDs in file.
+def get_other_car_id(car_id):
+    with open(os.path.join(_dir, "car_ids")) as f:
+        ids = f.readlines()[-2:]  # Most recent 2.
+    ids = list(filter(lambda x: int(x) != car_id, ids))
+    return int(ids[0].strip())
+
+
 class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
+        self.car_id = set_car_id()
         with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
         super(MyDriver, self).__init__(*args, **kwargs)
@@ -68,7 +107,11 @@ class MyDriver(Driver):
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-        
+        other_car_id = get_other_car_id(self.car_id)
+        other_carstate = load_carstate(other_car_id)
+        print(self.car_id, other_car_id)
+        print(type(other_carstate))
+
         command = Command()
         x_new = self.sensor_list(carstate)
         x_new_norm = normalize(x_new)
@@ -114,7 +157,6 @@ class MyDriver(Driver):
             command.brake = 0
             command.accelerator = 0.33
             command.steering = (carstate.angle - 2*carstate.distance_from_center)/(180/21)
-            print(self.nn_counter)
             #Brake first
             if self.nn_counter < 50:
                 command.brake = 1
@@ -125,7 +167,7 @@ class MyDriver(Driver):
                 self.nn_counter = 0
 
         if (self.speed < 1 and self.reset_counter> 100 and not self.reverse_start) or self.reverseCondition:
-            self.reverse_counter +=1
+            self.reverse_counter += 1
             self.reverseCondition = True
             #Handle gears
             a = carstate.angle
@@ -140,20 +182,20 @@ class MyDriver(Driver):
                   self.reverseCondition = False
                   command.brake = 1
 
-        #Hardcode when we are moving into the wrongdirection, assume nose backwards
+        # Hardcode when we are moving into the wrongdirection, assume nose backwards
         if (False and carstate.distance_from_start < self.old_distance):
              self.reverseCondition = True
              print("Wrong way, yo")
-        #Update distance
-        self.old_distance =carstate.distance_from_start
-        print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
- # We don't set driver focus, or use focus edges.
+        # Update distance
+        self.old_distance = carstate.distance_from_start
+        # We don't set driver focus, or use focus edges.
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
+        save_carstate(self.car_id, carstate)
         return command
-        # Given a State return a list of sensors for our NN.
 
+    # Given a State return a list of sensors for our NN.
     def sensor_list(self, carstate):
         # Speed from the three velocities x, y, z.
         self.speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
