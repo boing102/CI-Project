@@ -73,18 +73,18 @@ class MyDriver(Driver):
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-        
         command = Command()
-        x_new = self.sensor_list(carstate)
-        
+        #Get data
+        x_new = self.sensor_list(carstate)        
         x_new_norm = normalize(x_new)
         x_new_norm = self.pca.transform(x_new_norm)
-        #Apply commands: Note, they need to be inverted to original
-        prediction = self.nn.predict(x_new_norm)[0]
-        
+
+        #Predict and use predictions
+        prediction = self.nn.predict(x_new_norm)[0]        
         command.accelerator = prediction[0]
         command.brake = prediction[1] #To test for correction
         steering = prediction[2]
+
         #If we drive fast, don't steer sharply
         if self.speed < 100:
             steering = steering
@@ -130,13 +130,13 @@ class MyDriver(Driver):
                 self.reverse_start = False
                 self.nn_counter = 0
 
+        #Drive backwards to correct
         if (self.speed < 1 and self.reset_counter> 100 and not self.reverse_start) or self.reverseCondition:
             self.reverse_counter +=1
             self.reverseCondition = True
             #Handle gears
             a = carstate.angle
-            c = 1
-            command.steering = (-a)/(180/21)    
+            command.steering = (-a)/(180/21)
             command.gear = -1
             command.accelerator = 0.5
             command.brake = 0
@@ -146,12 +146,12 @@ class MyDriver(Driver):
                   self.reverseCondition = False
                   command.brake = 1
 
-        #Hardcode when we are moving into the wrongdirection, assume nose backwards
-        if (False and carstate.distance_from_start < self.old_distance):
-             self.reverseCondition = True
-             print("Wrong way, yo")
+        #When we are moving into the wrong direction. Exception on start/finish
+        if (carstate.distance_from_start < self.old_distance) and carstate.distance_from_start >10:
+             self.reverse_start = True
+
         #Update distance
-        self.old_distance =carstate.distance_from_start
+        self.old_distance = carstate.distance_from_start
         print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
  # We don't set driver focus, or use focus edges.
         if self.data_logger:
