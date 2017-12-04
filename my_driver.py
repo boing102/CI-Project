@@ -112,12 +112,10 @@ class MyDriver(Driver):
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-<<<<<<< HEAD
-=======
         other_car_id = get_other_car_id(self.car_id)
-        other_carstate = load_carstate(other_car_id)
+        if (not other_car_id == None):
+            other_carstate = load_carstate(other_car_id)
 
->>>>>>> a4d24984dfe5a5b1876fcfb34ba56d3f9d3a703f
         command = Command()
         #Get data
         x_new = self.sensor_list(carstate)        
@@ -190,7 +188,6 @@ class MyDriver(Driver):
                   self.reverseCondition = False
                   command.brake = 1
 
-<<<<<<< HEAD
         #When we are moving into the wrong direction. Exception on start/finish
         if (carstate.distance_from_start < self.old_distance) and carstate.distance_from_start >10:
              self.reverse_start = True
@@ -199,7 +196,7 @@ class MyDriver(Driver):
         self.old_distance = carstate.distance_from_start
         print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
  # We don't set driver focus, or use focus edges.
-=======
+
         # Hardcode when we are moving into the wrongdirection, assume nose backwards
         if (False and carstate.distance_from_start < self.old_distance):
              self.reverseCondition = True
@@ -207,7 +204,6 @@ class MyDriver(Driver):
         # Update distance
         self.old_distance = carstate.distance_from_start
         # We don't set driver focus, or use focus edges.
->>>>>>> a4d24984dfe5a5b1876fcfb34ba56d3f9d3a703f
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
