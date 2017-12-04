@@ -197,10 +197,6 @@ class MyDriver(Driver):
         print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
  # We don't set driver focus, or use focus edges.
 
-        # Hardcode when we are moving into the wrongdirection, assume nose backwards
-        if (carstate.distance_from_start < self.old_distance):
-             self.reverseCondition = True
-             print("Wrong way, yo")
         # Update distance
         self.old_distance = carstate.distance_from_start
         # We don't set driver focus, or use focus edges.
