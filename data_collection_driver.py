@@ -5,13 +5,15 @@ import os
 import numpy as np
 from pynput.keyboard import KeyCode, Listener
 
-from my_driver import sensor_list
+from my_driver import MyDriver
 from pytocl.car import Command, State
 from pytocl.driver import Driver
 
+
+
 _dir = os.path.dirname(os.path.realpath(__file__))
 use_recovery = False
-
+driver = MyDriver()
 
 # Whether WASD keys are currently pressed.
 accelerate = False
@@ -34,7 +36,7 @@ def get_path():
 
 # Save one row of collected training data.
 def collect_data(carstate, c):
-    row = sensor_list(carstate).tolist()
+    row = driver.sensor_list(carstate).tolist()
     print(row)
     collected_data.append(row[0])
 
