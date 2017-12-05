@@ -35,8 +35,9 @@ def get_path():
 
 
 # Save one row of collected training data.
-def collect_data(carstate, c):
-    row = driver.sensor_list(carstate).tolist()
+def collect_data(carstate, a, b, steering):
+    row = [a,b,steering]
+    row.append(driver.sensor_list(carstate).tolist())
     print(row)
     collected_data.append(row[0])
 
@@ -135,6 +136,7 @@ class DataCollectionDriver(Driver):
             command.steering = self.steering_ctrl.control(-1, carstate.current_lap_time) 
         elif left:
             command.steering = self.steering_ctrl.control(1, carstate.current_lap_time) 
+        return command.steering
 
     # Set acceleration, brake and gear.
     def acc_brake(self, command, carstate):
@@ -156,14 +158,15 @@ class DataCollectionDriver(Driver):
             # Else we apply full brake, trying to come to a stop.
             else:
                 command.brake = 1
+        return (command.accelerator, command.brake)
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
         command = Command()
-        self.steer(command, carstate)
-        self.acc_brake(command, carstate)
+        steer = self.steer(command, carstate)
+        a,b = self.acc_brake(command, carstate)
         if recording:
-            collect_data(carstate, command)
+            collect_data(carstate, a, b, steer)
         if use_recovery:
             self.recovery(carstate, command)
         return command

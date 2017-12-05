@@ -121,9 +121,9 @@ class MyDriver(Driver):
         command.steering = steering
 
         # Gear is set by a deterministic rule.
-        if carstate.rpm > 8000:
+        if carstate.rpm > 9000:
             command.gear = carstate.gear + 1
-        if carstate.rpm < 2500:
+        if carstate.rpm < 4500:
             command.gear = carstate.gear - 1
         if not command.gear:
             command.gear = carstate.gear or 1
