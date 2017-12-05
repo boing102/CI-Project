@@ -37,31 +37,35 @@ def get_path():
 # Save one row of collected training data.
 def collect_data(carstate, a, b, steering):
     row = [a,b,steering]
-    row.append(driver.sensor_list(carstate).tolist())
+    row = [a,b,steering] + driver.sensor_list(carstate).tolist()[0]
     print(row)
-    collected_data.append(row[0])
+    collected_data.append(row)
 
 
 # Writes the collected data to collected_data_path.
 def save_collected_data():
     with open(collected_data_path, "w") as f:
+        print('STOP RECORDING')
         writer = csv.writer(f)
+        print('STOP RECORDING')
         writer.writerow([","])
+        print('STOP RECORDING')
         writer.writerows(collected_data)
+        print('STOP RECORDING')
 
 
 # Switch a WASD key to pressed state.
 def on_press(key):
-    if key == KeyCode.from_char("j"):
+    if key == KeyCode.from_char("w"):
         global accelerate
         accelerate = True
-    if key == KeyCode.from_char("k"):
+    if key == KeyCode.from_char("s"):
         global brake
         brake = True
-    if key == KeyCode.from_char("d"):
+    if key == KeyCode.from_char("a"):
         global left
         left = True
-    if key == KeyCode.from_char("f"):
+    if key == KeyCode.from_char("d"):
         global right
         right = True
     if key == KeyCode.from_char("r"):
@@ -74,6 +78,7 @@ def on_press(key):
             print("Recording data")
             print(len(collected_data))
         else:
+            print('STOP RECORDING')
             save_collected_data()
             print("Saved collected data to: " + collected_data_path)
         recording = not recording
@@ -81,16 +86,16 @@ def on_press(key):
 
 # Switch a WASD key to released state.
 def on_release(key):
-    if key == KeyCode.from_char("j"):
+    if key == KeyCode.from_char("w"):
         global accelerate
         accelerate = False
-    if key == KeyCode.from_char("k"):
+    if key == KeyCode.from_char("s"):
         global brake
         brake = False
-    if key == KeyCode.from_char("d"):
+    if key == KeyCode.from_char("a"):
         global left
         left = False
-    if key == KeyCode.from_char("f"):
+    if key == KeyCode.from_char("d"):
         global right
         right = False
 
