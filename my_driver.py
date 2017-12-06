@@ -220,9 +220,9 @@ class MyDriver(Driver):
                     #if d1 > d2: 
                     command.accelerator *= 0.5
 
-                #Let the slowest car drive more slow                 
+                #Let the slowest car drive more slowly                 
                 if r2 <= 3 and r1 > r2 and r2 < 5:
-                    command.accelerator *= 0.8
+                    command.accelerator *= 0.7
 
                 #Crash mode: Slowest car should act
                 elif r2 <= 3  and (r2 - r1 <= 4) and (r2-r1 >=2): 
