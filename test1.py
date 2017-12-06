@@ -17,7 +17,7 @@ x_train = tr[:,3:25]
 y_train = tr[:,0:3]
 x_test = te[:,3:25]
 y_test = te[:,0:3]
-pca = PCA(n_components=7)
+pca = PCA(n_components=6)
 
 x_train_norm = normalize(x_train)
 x_test_norm = normalize(x_test)

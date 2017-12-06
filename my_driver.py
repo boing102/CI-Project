@@ -1,7 +1,5 @@
 import logging
 import os
-import sys
-import time
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 from sklearn.neural_network import MLPRegressor
@@ -13,8 +11,8 @@ import pickle
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
-path_to_model = os.path.join(_dir, "models/sklearn.pickle")
-path_to_pca = os.path.join(_dir, "models/pca.pickle")
+path_to_model = "./models/sklearn.pickle"
+path_to_pca = "./models/pca.pickle"
 
 """
 Definitions of State and Command:
@@ -57,45 +55,9 @@ Command attributes:
         ``State.focused_distances_from_edge``, [-90;90], deg.
 """
 
-# Path of carstate given car ID.
-carstate_filepath = lambda car_id: os.path.join(_dir, "carstate-{0}".format(car_id))
-
-
-# Save carstate to file.
-def save_carstate(car_id, carstate):
-    with open(carstate_filepath(car_id), "wb") as f:
-        pickle.dump(carstate, f)
-
-
-# Load carstate given car ID.
-# May return None on rare occasion.
-def load_carstate(car_id):
-    try:
-        with open(carstate_filepath(car_id), "rb") as f:
-            return pickle.load(f)
-    except:
-        return None
-
-# Adds random ID to a car ID file and return ID.
-def set_car_id():
-    car_id = np.random.randint(sys.maxsize)
-    with open(os.path.join(_dir, "car_ids"), "a") as f:
-        f.write("\n{0}".format(car_id))
-    return car_id
-
-
-# Get other car ID from list of IDs in file.
-def get_other_car_id(car_id):
-    with open(os.path.join(_dir, "car_ids")) as f:
-        ids = f.readlines()[-2:]  # Most recent 2.
-    ids = list(filter(lambda x: int(x) != car_id, ids))
-    return int(ids[0].strip())
-
-
 class MyDriver(Driver):
 
     def __init__(self, *args, **kwargs):
-        self.car_id = set_car_id()
         with open(path_to_model, 'rb') as handle:
             self.nn = pickle.load(handle)
         with open(path_to_pca, 'rb') as handle:
@@ -116,17 +78,16 @@ class MyDriver(Driver):
     def drive(self, carstate: State) -> Command:
 
         command = Command()
-        #Get data
-        x_new = self.sensor_list(carstate)        
+        x_new = self.sensor_list(carstate)
+        
         x_new_norm = normalize(x_new)
         x_new_norm = self.pca.transform(x_new_norm)
-
-        #Predict and use predictions
-        prediction = self.nn.predict(x_new_norm)[0]        
+        #Apply commands: Note, they need to be inverted to original
+        prediction = self.nn.predict(x_new_norm)[0]
+        
         command.accelerator = prediction[0]
         command.brake = prediction[1] #To test for correction
         steering = prediction[2]
-
         #If we drive fast, don't steer sharply
         if self.speed < 100:
             steering = steering
@@ -163,6 +124,7 @@ class MyDriver(Driver):
             command.brake = 0
             command.accelerator = 0.33
             command.steering = (carstate.angle - 2*carstate.distance_from_center)/(180/21)
+            print(self.nn_counter)
             #Brake first
             if self.nn_counter < 50:
                 command.brake = 1
@@ -178,7 +140,8 @@ class MyDriver(Driver):
             self.reverseCondition = True
             #Handle gears
             a = carstate.angle
-            command.steering = (-a)/(180/21)
+            c = 1
+            command.steering = (-a)/(180/21)    
             command.gear = -1
             command.accelerator = 0.5
             command.brake = 0
@@ -193,6 +156,7 @@ class MyDriver(Driver):
         if (new_distance + 0.5 < self.old_distance) and carstate.distance_from_start > 30:
              self.reverse_condition = True
 
+<<<<<<< HEAD
         #print(self.reverseCondition, self.reverse_start, self.speed, carstate.distance_from_start, carstate.rpm, carstate.gear, command.gear)
 
         #Cooperation
@@ -241,13 +205,18 @@ class MyDriver(Driver):
         # Update distance
         self.old_distance = carstate.distance_from_start
         # We don't set driver focus, or use focus edges.
+=======
+        #Update distance
+        self.old_distance = carstate.distance_from_start
+        #print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
+ # We don't set driver focus, or use focus edges.
+>>>>>>> 821445ad99bc709e485a6d89e48b7a9aa81f2802
         if self.data_logger:
             self.data_logger.log(carstate, command)
 
-        save_carstate(self.car_id, carstate)
         return command
+        # Given a State return a list of sensors for our NN.
 
-    # Given a State return a list of sensors for our NN.
     def sensor_list(self, carstate):
         # Speed from the three velocities x, y, z.
         self.speed = np.sqrt(np.sum([s**2 for s in (carstate.speed_x, carstate.speed_y,
