@@ -114,13 +114,6 @@ class MyDriver(Driver):
 
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-        other_car_id = get_other_car_id(self.car_id)
-        if (not other_car_id == None):
-            other_carstate = load_carstate(other_car_id)
-            try:
-                print(carstate.race_position, other_carstate.race_position)
-            except:
-                pass 
 
         command = Command()
         #Get data
@@ -153,10 +146,11 @@ class MyDriver(Driver):
         # Gear is set by a deterministic rule.
         if carstate.rpm > 9000:
             command.gear = carstate.gear + 1
-        if carstate.rpm < 4500:
-            command.gear = carstate.gear - 1
+        if carstate.rpm < 4000:
+            if carstate.gear > 1:#Prevent to go into neutral 
+                command.gear = carstate.gear - 1
         if not command.gear:
-            command.gear = carstate.gear or 1
+            command.gear = carstate.gear
 
         # command.steering = prediction[2]
 
@@ -195,13 +189,54 @@ class MyDriver(Driver):
                   command.brake = 1
 
         #When we are moving into the wrong direction. Exception on start/finish
-        if (carstate.distance_from_start < self.old_distance) and carstate.distance_from_start > 30:
-             self.reverse_start = True
+        new_distance = carstate.distance_from_start
+        if (new_distance + 0.5 < self.old_distance) and carstate.distance_from_start > 30:
+             self.reverse_condition = True
 
-        #Update distance
-        self.old_distance = carstate.distance_from_start
-        #print(self.reverseCondition, self.reverse_start,self.speed,command.steering, carstate.angle, carstate.distance_from_center)
- # We don't set driver focus, or use focus edges.
+        #print(self.reverseCondition, self.reverse_start, self.speed, carstate.distance_from_start, carstate.rpm, carstate.gear, command.gear)
+
+        #Cooperation
+        other_car_id = get_other_car_id(self.car_id)
+        if (not other_car_id == None):
+            other_carstate = load_carstate(other_car_id)
+            #print(carstate.distance_from_edge)
+            try:
+                c1, c2 = carstate, other_carstate
+                d1, d2 = c1.distance_from_start, c2.distance_from_start
+                r1, r2 = c1.race_position,c2.race_position
+                dl1, dl2 = c1.distances_from_edge[0], c2.distances_from_edge[0]
+                dr1, dr2 = c1.distances_from_edge[-1], c2.distances_from_edge[-1]
+                leftCar = True
+                #Parallel driving: Fastest car should act (slow down)
+                if r2 - r1 == 1 and (r2 ==3 or r2 ==4 or True) and (d1 - d2 < 50) and (d1 - d2 > 7.55):
+                    print("parallel")
+                    #if dl1 < dl2:
+                    #    #Fastest car moves to the left
+                    #    command.steering = -0.3
+                    #else:
+                    #    #Move to the right
+                    #    command.steering = +0.3
+                    #Drive more slowly if required
+                    #if d1 > d2: 
+                    command.accelerator *= 0.5
+
+                #Let the slowest car drive more slow                 
+                if r2 <= 3 and r1 > r2 and r2 < 5:
+                    command.accelerator *= 0.8
+
+                #Crash mode: Slowest car should act
+                elif r2 <= 3  and (r2 - r1 <= 4) and (r2-r1 >=2): 
+                    #If opponent is less than 10m away and in right angle range( -30, 30)
+                    oDir = c1.opponents[15:20]
+                    (dMin,index) = min(oDir)
+                    if dMin < 10:
+                        print("Crash mode")
+                        #Drive into this opponent
+                        command.steering = -(-20 + index*10)/21
+                        command.accelerator = 1
+                        command.brake = 0
+            except:
+                pass 
 
         # Update distance
         self.old_distance = carstate.distance_from_start
@@ -233,7 +268,7 @@ class MyDriver(Driver):
             # carstate.rpm,
             # carstate.speed_y,
             # carstate.speed_z,
-            # carstate.distance_from_center,
+            # carstate.distance_from_center,mñ
             # carstate.wheel_velocities,
             # carstate.z,
             # carstate.focused_distances_from_edge
