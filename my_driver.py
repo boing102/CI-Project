@@ -204,24 +204,34 @@ class MyDriver(Driver):
                 c1, c2 = carstate, other_carstate
                 d1, d2 = c1.distance_from_start, c2.distance_from_start
                 r1, r2 = c1.race_position,c2.race_position
-                dl1, dl2 = c1.distances_from_edge[0], c2.distances_from_edge[0]
-                dr1, dr2 = c1.distances_from_edge[-1], c2.distances_from_edge[-1]
-                leftCar = True
+                dc1, dc2 = c1.distance_from_center, c2.distance_from_center
                 #Parallel driving: Fastest car should act (slow down)
-                if r2 - r1 == 1 and (r2 ==3 or r2 ==4 or True) and (d1 - d2 < 50) and (d1 - d2 > 7.55):
+                if abs(r2 - r1) == 1 and (min(r1,r2) <3) and (abs(d1 - d2) < 30):
                     print("parallel")
-                    #if dl1 < dl2:
-                    #    #Fastest car moves to the left
-                    #    command.steering = -0.3
-                    #else:
-                    #    #Move to the right
-                    #    command.steering = +0.3
-                    #Drive more slowly if required
-                    #if d1 > d2: 
-                    command.accelerator *= 0.5
+                    steeringParam = 0.1
+                    if dc1 < dc2:#Drive on the left-side of the track                    
+                        print("I am left")#Correct if we are too much to the middle
+                        if dc1 < -0.2:
+                            command.steering = -steeringParam
+                    else:#Drive on the right-side of the track
+                        print("I am right")
+                        if dc1 > 0.2:
+                            command.steering = steeringParam
+
+                    #Require the cars to stay together
+                    if self.speed > 30:
+                        print("Slow down, bud")
+                        command.brake = 0.3
+                        command.accelerate = 0
+                    if d1 > d2 and r1 < r2:
+                        command.brake = 0.5
+                        command.accelerate = 0
+                    if self.speed < 30:
+                        command.accelerate = 0.5
+                        command.brake = 0
 
                 #Let the slowest car drive more slow                 
-                if r2 <= 3 and r1 > r2 and r2 < 5:
+                elif r2 <= 3 and r1 > r2 and r2 < 5:
                     command.accelerator *= 0.8
 
                 #Crash mode: Slowest car should act
@@ -268,7 +278,7 @@ class MyDriver(Driver):
             # carstate.rpm,
             # carstate.speed_y,
             # carstate.speed_z,
-            # carstate.distance_from_center,mñ
+            # carstate.distance_from_center,
             # carstate.wheel_velocities,
             # carstate.z,
             # carstate.focused_distances_from_edge
