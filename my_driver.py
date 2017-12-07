@@ -10,14 +10,15 @@ from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
 import numpy as np
 import pickle
+import fix_data
 
-OVERTAKING = False
+OVERTAKING = True
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = os.path.join(_dir, "models/sklearn.pickle")
 path_to_pca = os.path.join(_dir, "models/pca.pickle")
-path_to_overtake_model = os.path.join(_dir, "models/overtake_data_sklearn.pickle")
+path_to_overtake_model = os.path.join(_dir, "models/simp_smooth_overtake_data_sklearn.pickle")
 
 """
 Definitions of State and Command:
@@ -122,7 +123,7 @@ class MyDriver(Driver):
     # Should we use the overtaking network?
     def should_overtake(self, carstate: State) -> Command:
         # From -90 to +90, since overtaking only cares about in front/sides.
-        sensors = [x for x in carstate.opponents][9:27 + 1]
+        sensors = [x for x in carstate.opponents][18 - 3:18 + 3 + 1]
         return np.min(sensors) < 15
 
 
@@ -130,7 +131,7 @@ class MyDriver(Driver):
     def overtake(self, carstate: State):
         x_new = self.sensor_list(carstate)[0].tolist()
         opponents = list(carstate.opponents)
-        total_x = np.array(x_new + opponents)
+        total_x = fix_data.simplify_row([0, 0, 0] + x_new + opponents)[3:]
         total_x = np.reshape(total_x, (1, len(total_x)))
         total_x_norm = normalize(total_x)
         prediction = self.overtake_nn.predict(total_x_norm)[0]
@@ -148,6 +149,7 @@ class MyDriver(Driver):
         # Predict using some NN.
         if OVERTAKING and self.should_overtake(carstate):
             prediction = self.overtake(carstate)
+            print("Overtaking prediction: {0}".format(prediction))
         else:
             prediction = self.nn.predict(x_new_norm)[0]
 
