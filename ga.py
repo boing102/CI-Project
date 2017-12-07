@@ -2,7 +2,7 @@ from itertools import chain
 import numpy as np
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import normalize
-
+from sklearn.decomposition import PCA
 from data import all_data, split_data, x_y
 
 # For report:
@@ -10,22 +10,22 @@ from data import all_data, split_data, x_y
 
 input_layer_nodes = 22
 output_layer_nodes = 3
-max_hidden_layers = 6  # Genome length.
-min_hidden_layer_nodes = 0
-max_hidden_layer_nodes = 2 * max(input_layer_nodes, output_layer_nodes)
+max_hidden_layers = 3  # Genome length.
+min_hidden_layer_nodes = 3
+max_hidden_layer_nodes = 10 * max(input_layer_nodes, output_layer_nodes)
 
 # The probability of recombination being applied to a pair of parents.
 prob_parents_recombining = 0.5
 # The probability of a gene in a genome being mutated. p_m in literature.
 prob_gene_mutation = 1 / max_hidden_layers  # 1 / l.
 # The probability of a hidden layer being zero (empty) on mutation.
-prob_zero_hidden_layer = 0.5
+prob_zero_hidden_layer = 0.15
 # Mu.
 pop_size = 50
 # Generational GA.
 num_offspring = pop_size
 # k.
-tournament_size = 3
+tournament_size = 7
 # Accuracy on training set.
 termination_accuracy = 0.95
 max_epochs = 5  # Default: 200.
@@ -45,7 +45,9 @@ def shuffle_and_setup_data():
     x_train_norm = normalize(x_train)
     x_test, y_test = x_y(test_data)
     x_test_norm = normalize(x_test)
-
+    pca = PCA(n_components=7)
+    x_train_norm = pca.fit_transform(x_train_norm)
+    x_test_norm = pca.transform(x_test_norm)
 
 # A list of the nodes in hidden layers, and maybe a fitness.
 class Genome:

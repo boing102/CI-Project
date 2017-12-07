@@ -235,18 +235,6 @@ class MyDriver(Driver):
                     if self.speed > 50
                     command.accelerator = 0
                     command.brake = 0.3
-
-                #Crash mode: Slowest car should act
-                elif r2 <= 3  and (r2 - r1 <= 4) and (r2-r1 >=2): 
-                    #If opponent is less than 10m away and in right angle range( -30, 30)
-                    oDir = c1.opponents[15:20]
-                    (dMin,index) = min(oDir)
-                    if dMin < 10:
-                        print("Crash mode")
-                        #Drive into this opponent
-                        command.steering = -(-20 + index*10)/21
-                        command.accelerator = 1
-                        command.brake = 0
             except:
                 pass 
 
