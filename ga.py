@@ -11,8 +11,8 @@ from data import all_data, split_data, x_y
 input_layer_nodes = 22
 output_layer_nodes = 3
 max_hidden_layers = 3  # Genome length.
-min_hidden_layer_nodes = 3
-max_hidden_layer_nodes = 10 * max(input_layer_nodes, output_layer_nodes)
+min_hidden_layer_nodes = 0
+max_hidden_layer_nodes = 5 * max(input_layer_nodes, output_layer_nodes)
 
 # The probability of recombination being applied to a pair of parents.
 prob_parents_recombining = 0.5
@@ -21,14 +21,14 @@ prob_gene_mutation = 1 / max_hidden_layers  # 1 / l.
 # The probability of a hidden layer being zero (empty) on mutation.
 prob_zero_hidden_layer = 0.15
 # Mu.
-pop_size = 50
+pop_size = 5
 # Generational GA.
 num_offspring = pop_size
 # k.
-tournament_size = 7
+tournament_size = 1
 # Accuracy on training set.
 termination_accuracy = 0.95
-max_epochs = 5  # Default: 200.
+max_epochs = 1  # Default: 200.
 
 all_data_ = all_data()
 
@@ -72,7 +72,7 @@ class Genome:
         shuffle_and_setup_data()
         nn = MLPRegressor(hidden_layer_sizes=self.hidden_layer_sizes(), max_iter=max_epochs)
         nn.fit(x_train_norm, y_train)
-        self.fitness = nn.score(x_test_norm, y_test)
+        self.fitness = max(0,nn.score(x_test_norm, y_test)) #Don't allow for negative fitness. 0 Fitness individuals will not survive
         print(self)
 
 
@@ -89,6 +89,12 @@ def uniform_gene(high_zero_prob=False) -> int:
 def rand_population(amount) -> [Genome]:
     return [Genome() for _ in range(amount)]
 
+
+# Apply recombination to each pair of parents.
+def recombinations_of(mating_pool):
+    pairs = [recombine_maybe(a, b)
+             for a, b in zip(mating_pool[0::2], mating_pool[1::2])]
+    return list(chain.from_iterable(pairs))
 
 # One point crossover, probabilistically applied, else returns parents.
 def recombine_maybe(parent_a, parent_b) -> (Genome, Genome):
@@ -115,12 +121,6 @@ def mutate_maybe(genome):
     return genome
 
 
-# Apply recombination to each pair of parents.
-def recombinations_of(mating_pool):
-    pairs = [recombine_maybe(a, b)
-             for a, b in zip(mating_pool[0::2], mating_pool[1::2])]
-    return list(chain.from_iterable(pairs))
-
 
 # Fitness proportional selection using SUS.
 def parent_selection(population, amount) -> [Genome]:
@@ -135,6 +135,7 @@ def parent_selection(population, amount) -> [Genome]:
     for i, genome in enumerate(population):
         p_sel_sum += genome.p_sel
         cpd[i] = p_sel_sum
+
     # SUS.
     mating_pool = [None for _ in range(num_offspring)]
     current_member = 0
@@ -147,7 +148,8 @@ def parent_selection(population, amount) -> [Genome]:
             r += 1 / num_offspring
         i += 1
     np.random.shuffle(mating_pool)
-    return mating_pool
+
+    return mating_pool[0:num_offspring]
 
 
 # Tournament selection.
@@ -177,29 +179,45 @@ def assert_good_pop(population):
 
 
 def run():
-    population = rand_population(pop_size)
-    evaluate(population)
-    while not will_terminate(population):
+    i = 0
+    while i == 0 or not will_terminate(population):
+        #Initialize
+        if i == 0:
+            print("Initialize random population")
+            population = rand_population(pop_size)
+            evaluate(population)
+        print("Generation ", i)
         best = max(population, key=lambda x: x.fitness)
+        #Store best individual of generation for future evalution
         with open("ga-results.txt", "a") as f:
             f.write("\n" + str(best))
         print("population")
         [print(genome) for genome in population]
-        mating_pool = parent_selection(population, num_offspring)
         assert_good_pop(population)
+
+        #Mating pool
+        mating_pool = parent_selection(population, num_offspring)
         print("mating_pool")
         [print(genome) for genome in mating_pool]
-        offspring = recombinations_of(mating_pool)
+        
+        #Offspring
         print("offspring")
+        offspring = recombinations_of(mating_pool)
+        print("Size offspring", len(offspring))
+        evaluate(offspring)
         [print(genome) for genome in offspring]
+        
+        #Mutate offspring
         mutants = [mutate_maybe(genome) for genome in offspring]
+        print("evaluate mutants")
         evaluate(mutants)
-        print("evaluated mutants")
         [print(genome) for genome in mutants]
+        
+        #Survivor selection
         population = survivor_selection(mutants)
         evaluate(population)
         population[np.random.randint(len(population))] = best
-
+        i+=1
 
 if __name__ == "__main__":
     run()
