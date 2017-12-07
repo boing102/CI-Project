@@ -232,9 +232,9 @@ class MyDriver(Driver):
 
                 #Let the slowest car drive more slow                 
                 elif r2 <= 3 and r1 > r2 and r2 < 5:
-                    if self.speed > 50
-                    command.accelerator = 0
-                    command.brake = 0.3
+                    if self.speed > 50:
+                        command.accelerator = 0
+                        command.brake = 0.3
             except:
                 pass 
 

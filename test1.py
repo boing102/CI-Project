@@ -33,7 +33,7 @@ x_test_norm = pca.transform(x_test_norm)
 # x_test_norm = normalize(x_test_scale)
 
 nn = MLPRegressor(
-    hidden_layer_sizes=(27, 42, 43), random_state=RANDOM_SEED, learning_rate='invscaling')
+    hidden_layer_sizes=(94 ,68, 32), random_state=RANDOM_SEED, learning_rate='invscaling')
 
 n = nn.fit(x_train_norm, y_train)
 
