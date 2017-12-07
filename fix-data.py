@@ -5,21 +5,18 @@ import numpy as np
 
 # Simplify a row of data.
 def simplify_row(row):
-    print(row.shape)
     not_opponents, opponents = row[:25], row[25:]
-    print(not_opponents.shape)
-    print(opponents.shape)
     less_opponents = opponents[18 - 3:18 + 3 + 1]
-    print(less_opponents.shape)
     return np.concatenate([not_opponents, less_opponents])
 
 
 # Smooth out a steering column.
 def smooth_steering(column):
-    for i in range(len(column)):
-        val = column[i]
-        if val > 0:
-            print(val)
+    # for i in range(len(column)):
+    #     val = column[i]
+    #     if val > 0:
+    #         print(val)
+    return np.convolve(column, (0.1, 0.2, 0.3, 0.4), "same")
 
 
 def simplify_all(in_folder, out_folder):
@@ -34,5 +31,16 @@ def simplify_all(in_folder, out_folder):
                    simplified_data, header=",", delimiter=",")
 
 
+def smooth_all(in_folder, out_folder):
+    for path in glob.glob(os.path.join(".", in_folder, "*.csv")):
+        data = np.genfromtxt(path, skip_header=True, delimiter=",", dtype=float)
+        data[:, 2] = smooth_steering(data[:, 2])
+        print(data[:, 2])
+        filename = os.path.basename(path)
+        np.savetxt(os.path.join(".", out_folder, filename), data, header=",",
+                   delimiter=",")
+
+
 if __name__ == "__main__":
     simplify_all("overtake_data", "simplified_overtake_data")
+    smooth_all("simplified_overtake_data", "simp_smooth_overtake_data")
