@@ -4,3 +4,8 @@ pandas
 sklearn
 h5py
 tensorflow
+pickle
+os
+time
+sys
+logging
