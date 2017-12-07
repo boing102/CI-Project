@@ -222,48 +222,51 @@ class MyDriver(Driver):
         if (new_distance + 0.5 < self.old_distance) and carstate.distance_from_start > 30:
              self.reverse_condition = True
 
-        #print(self.reverseCondition, self.reverse_start, self.speed, carstate.distance_from_start, carstate.rpm, carstate.gear, command.gear)
-
-        #Cooperation
+          #Cooperation
         other_car_id = get_other_car_id(self.car_id)
         if (not other_car_id == None):
             other_carstate = load_carstate(other_car_id)
-            #print(carstate.distance_from_edge)
+
             try:
                 c1, c2 = carstate, other_carstate
                 d1, d2 = c1.distance_from_start, c2.distance_from_start
                 r1, r2 = c1.race_position,c2.race_position
                 dc1, dc2 = c1.distance_from_center, c2.distance_from_center
-                #Parallel driving: Fastest car should act (slow down)
-                if abs(r2 - r1) == 1 and (min(r1,r2) <3) and (abs(d1 - d2) < 30):
-                    print("parallel")
-                    steeringParam = 0.1
-                    if dc1 < dc2:#Drive on the left-side of the track                    
-                        print("I am left")#Correct if we are too much to the middle
-                        if dc1 < -0.2:
+                steeringParam = 1
+                distanceParam = 0.6
+                #Parallel driving
+                if abs(r2 - r1) == 1 and min(r1,r2) <= 3 and abs(d2 - d1) < 30:
+
+                    if dc1 > dc2:#Drive on the left-side of the track
+                        #Correct if we are too much to the middle
+                        if dc1 > distanceParam: #
                             command.steering = -steeringParam
-                    else:#Drive on the right-side of the track
-                        print("I am right")
-                        if dc1 > 0.2:
+                        if dc1 < distanceParam/1.1 :
                             command.steering = steeringParam
+                    else:#Drive on the right-side of the track
+                        if dc1 < -distanceParam:
+                            command.steering = steeringParam
+                        if dc1 > -distanceParam/1.1:
+                            command.steering = -steeringParam
 
+                        
                     #Require the cars to stay together
-                    if self.speed > 30:
-                        print("Slow down, bud")
-                        command.brake = 0.3
-                        command.accelerate = 0
-                    if d1 > d2 and r1 < r2:
-                        command.brake = 0.5
-                        command.accelerate = 0
-                    if self.speed < 30:
-                        command.accelerate = 0.5
-                        command.brake = 0
-
-                #Let the slowest car drive more slow                 
-                elif r2 <= 3 and r1 > r2 and r2 < 5:
-                    if self.speed > 50:
+                    if self.speed > 13: #Both cars should slow down
+                        command.brake = 0.2
                         command.accelerator = 0
-                        command.brake = 0.3
+                    if self.speed < 8: #Both cars should accelerate, e.g. at start/crash
+                        command.accelerator = 0.8
+                        command.brake = 0
+                    if d1 > d2 + 1 and self.speed > 8:#Leading car should brake
+                        command.brake = 0.2
+                        command.accelerator = 0
+                    
+                #Let the slowest car drive more slow. Parallel driving has priority                 
+                elif r2 <= 3 and r1 > r2 and r2 < 5:
+                    if self.speed > 130:
+                        command.accelerator = 0
+                        command.brake = 0.2
+
             except:
                 pass 
 
