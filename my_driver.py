@@ -11,10 +11,13 @@ from sklearn.decomposition import PCA
 import numpy as np
 import pickle
 
+OVERTAKING = False
+
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = os.path.join(_dir, "models/sklearn.pickle")
 path_to_pca = os.path.join(_dir, "models/pca.pickle")
+path_to_overtake_model = os.path.join(_dir, "models/overtake_data_sklearn.pickle")
 
 """
 Definitions of State and Command:
@@ -76,6 +79,7 @@ def load_carstate(car_id):
     except:
         return None
 
+
 # Adds random ID to a car ID file and return ID.
 def set_car_id():
     car_id = np.random.randint(sys.maxsize)
@@ -100,6 +104,8 @@ class MyDriver(Driver):
             self.nn = pickle.load(handle)
         with open(path_to_pca, 'rb') as handle:
             self.pca = pickle.load(handle)
+        with open(path_to_overtake_model, 'rb') as handle:
+            self.overtake_nn = pickle.load(handle)
 
         super(MyDriver, self).__init__(*args, **kwargs)
         self.reset_counter = 0
@@ -112,17 +118,40 @@ class MyDriver(Driver):
         self.crashMode = False
         self.parallelDriving = False
 
+
+    # Should we use the overtaking network?
+    def should_overtake(self, carstate: State) -> Command:
+        # From -90 to +90, since overtaking only cares about in front/sides.
+        sensors = [x for x in carstate.opponents][9:27 + 1]
+        return np.min(sensors) < 15
+
+
+    # A prediction based on the overtaking NN.
+    def overtake(self, carstate: State):
+        x_new = self.sensor_list(carstate)[0].tolist()
+        opponents = list(carstate.opponents)
+        total_x = np.array(x_new + opponents)
+        total_x = np.reshape(total_x, (1, len(total_x)))
+        total_x_norm = normalize(total_x)
+        prediction = self.overtake_nn.predict(total_x_norm)[0]
+        return prediction
+
+
     # Given the car State return the next Command.
     def drive(self, carstate: State) -> Command:
-
         command = Command()
         #Get data
         x_new = self.sensor_list(carstate)        
         x_new_norm = normalize(x_new)
         x_new_norm = self.pca.transform(x_new_norm)
 
-        #Predict and use predictions
-        prediction = self.nn.predict(x_new_norm)[0]        
+        # Predict using some NN.
+        if OVERTAKING and self.should_overtake(carstate):
+            prediction = self.overtake(carstate)
+        else:
+            prediction = self.nn.predict(x_new_norm)[0]
+
+        # Use predictions.
         command.accelerator = prediction[0]
         command.brake = prediction[1] #To test for correction
         steering = prediction[2]

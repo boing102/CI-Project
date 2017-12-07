@@ -9,9 +9,9 @@ _dir = os.path.dirname(os.path.realpath(__file__))
 
 
 # Training data from all files concatenated.
-def all_data():
+def all_data(folder="train_data"):
     data = []
-    for filepath in glob.glob(os.path.join(_dir, "./train_data/*.csv")):
+    for filepath in glob.glob(os.path.join(_dir, "./" + folder + "/*.csv")):
         data.append(np.genfromtxt(filepath, skip_header=True, dtype=float,
                                   delimiter=",", skip_footer=True))
     return np.concatenate(data)
