@@ -40,7 +40,7 @@ def train(folder):
         random_state=RANDOM_SEED,
         learning_rate='invscaling')
 
-    nn = nn.fit(x_train_norm, y_train)
+    n = nn.fit(x_train_norm, y_train)
 
     score = nn.score(x_test_norm, y_test)
     print('R2 score is (1.0 is best)', score)
