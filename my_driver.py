@@ -12,13 +12,15 @@ import numpy as np
 import pickle
 import fix_data
 
-OVERTAKING = True
+OVERTAKING = False
 
 _logger = logging.getLogger(__name__)
 _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = os.path.join(_dir, "models/sklearn.pickle")
 path_to_pca = os.path.join(_dir, "models/pca.pickle")
-path_to_overtake_model = os.path.join(_dir, "models/simp_smooth_overtake_data_sklearn.pickle")
+path_to_overtake_model = None
+if OVERTAKING:
+    path_to_overtake_model = os.path.join(_dir, "models/simp_smooth_overtake_data_sklearn.pickle")
 
 """
 Definitions of State and Command:
@@ -122,7 +124,7 @@ class MyDriver(Driver):
 
     # Should we use the overtaking network?
     def should_overtake(self, carstate: State) -> Command:
-        # From -90 to +90, since overtaking only cares about in front/sides.
+        # From -30 to +30, since overtaking only cares about in front/sides.
         sensors = [x for x in carstate.opponents][18 - 3:18 + 3 + 1]
         return np.min(sensors) < 15
 

@@ -16,7 +16,7 @@ def smooth_steering(column):
     #     val = column[i]
     #     if val > 0:
     #         print(val)
-    return np.convolve(column, (0.1, 0.2, 0.3, 0.4), "same")
+    return np.convolve(column, (0.05, 0.05, 0.1, 0.1, 0.2, 0.2, 0.3), "same")
 
 
 def simplify_all(in_folder, out_folder):
@@ -42,5 +42,11 @@ def smooth_all(in_folder, out_folder):
 
 
 if __name__ == "__main__":
-    simplify_all("overtake_data", "simplified_overtake_data")
-    smooth_all("simplified_overtake_data", "simp_smooth_overtake_data")
+    in_folder = "overtake_data"
+    simp_folder = "simp_overtake_data"
+    simp_smooth_folder = "simp_smooth_overtake_data"
+    for folder in [in_folder, simp_folder, simp_smooth_folder]:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    simplify_all(in_folder, simp_folder)
+    smooth_all(simp_folder, simp_smooth_folder)
