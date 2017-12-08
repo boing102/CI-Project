@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pickle
 import sys
+import time
 from sklearn.decomposition import PCA
 from data import all_data, x_y, split_data
 
@@ -46,6 +47,8 @@ def train(folder):
             pickle.dump(pca, handle)
 
     else:
+        print("Make sure there's no PCA for overtaking NN!")
+        time.sleep(2)
         with open('./models/' + folder + '_sklearn.pickle', 'wb') as handle:
             pickle.dump(nn, handle)
 

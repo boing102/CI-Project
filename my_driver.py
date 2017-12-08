@@ -19,8 +19,7 @@ _dir = os.path.dirname(os.path.realpath(__file__))
 path_to_model = os.path.join(_dir, "models/sklearn.pickle")
 path_to_pca = os.path.join(_dir, "models/pca.pickle")
 path_to_overtake_model = None
-if OVERTAKING:
-    path_to_overtake_model = os.path.join(_dir, "models/simp_smooth_overtake_data_sklearn.pickle")
+path_to_overtake_model = os.path.join(_dir, "models/simp_smooth_overtake_data_sklearn.pickle")
 
 """
 Definitions of State and Command:
