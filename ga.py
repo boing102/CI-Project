@@ -20,25 +20,28 @@ prob_gene_mutation = 1 / max_hidden_layers  # 1 / l.
 # The probability of a hidden layer being zero (empty) on mutation.
 prob_zero_hidden_layer = 0.15
 # Mu.
-pop_size = 20
+pop_size = 40
 # Generational GA.
 num_offspring = pop_size
 # k.
 tournament_size = 3
 # Accuracy on training set.
 termination_accuracy = 0.95
-max_epochs = 2  # Default: 200.
+max_epochs = 1  # Default: 200.
+REPEAT = 5
 
 all_data_ = all_data()
+train_data, _, test_data = split_data(all_data_, 4, 0, 1)
 
 if pop_size % 2 != 0:
     raise AssertionError("Pop size should be a multiple of 2")
 
 
 # Shuffle and set up training/testing data.
-def shuffle_and_setup_data():
-    np.random.shuffle(all_data_)
-    train_data, _, test_data = split_data(all_data_, 4, 0, 1)
+def shuffle_and_setup_data(shuffle):
+    if shuffle:
+        np.random.shuffle(train_data)
+        np.random.shuffle(test_data)
     global y_train
     global x_train_norm
     global y_test
@@ -71,12 +74,56 @@ class Genome:
         return list(filter(lambda x: x > 0, self.genome))
 
     # Evaluate the genome's fitness.
-    def evaluate(self):
-        shuffle_and_setup_data()
-        nn = MLPRegressor(hidden_layer_sizes=self.hidden_layer_sizes(), max_iter=max_epochs)
+    def evaluate(self, shuffle=False, max_iter=max_epochs, repeat=REPEAT):
+        self.fitness = np.mean([self.single_eval(shuffle, max_iter)
+                                for _ in range(repeat)])
+
+    def single_eval(self, shuffle, max_iter):
+        shuffle_and_setup_data(shuffle=shuffle)
+        max_iter = max_epochs if max_iter is None else max_iter
+        nn = MLPRegressor(hidden_layer_sizes=self.hidden_layer_sizes(), max_iter=max_iter)
         nn.fit(x_train_norm, y_train)
         # Don't allow for negative fitness. 0 fitness individuals will not survive.
-        self.fitness = max(0, nn.score(x_test_norm, y_test))
+        return max(0, nn.score(x_test_norm, y_test))
+
+
+# How often to repeat given max_iter=1.
+def test_repeat():
+    for repeat in range(1, 20):
+        diff = eval_diff(shuffle=False, max_iter=1, repeat=repeat)
+        print("repeat {0} diff {1}".format(diff, repeat))
+
+
+# Determine eval_diff over different max_iter.
+def test_max_iter():
+    for max_iter in range(1, 20):
+        diff = eval_diff(shuffle=False, max_iter=max_iter, repeat=REPEAT)
+        print("max_iter {0}: diff {1}".format(max_iter, diff))
+
+
+# Should use shuffle or not?
+def test_shuffle():
+    total_shuffle_diff = 0
+    total_no_shuffle_diff = 0
+    for max_iter in range(5, 10):
+        shuffle_diff = eval_diff(shuffle=True, max_iter=max_iter, repeat=5)
+        no_shuffle_diff = eval_diff(shuffle=False, max_iter=max_iter, repeat=5)
+        print("shuffle {0} max_iter {1} diff {2}".format(True, max_iter, shuffle_diff))
+        print("shuffle {0} max_iter {1} diff {2}".format(False, max_iter, no_shuffle_diff))
+        total_shuffle_diff += shuffle_diff
+        total_no_shuffle_diff += no_shuffle_diff
+    print("total shuffle diff {0}".format(total_shuffle_diff))
+    print("total no shuffle diff {0}".format(total_no_shuffle_diff))
+
+
+# Difference in two equivalent evaluations of a random genome.
+def eval_diff(shuffle, max_iter, repeat):
+    genome = Genome()
+    genome.evaluate(shuffle=shuffle, max_iter=max_iter, repeat=repeat)
+    f1 = genome.fitness
+    genome.evaluate(shuffle=shuffle, max_iter=max_iter, repeat=repeat)
+    f2 = genome.fitness
+    return abs(f1 - f2)
 
 
 # A uniform random amount of nodes for a hidden layer.
@@ -228,4 +275,7 @@ def run():
 
 
 if __name__ == "__main__":
+    # test_shuffle()
+    # test_repeat()
+    # test_max_iter()
     run()
