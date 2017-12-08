@@ -20,11 +20,11 @@ prob_gene_mutation = 1 / max_hidden_layers  # 1 / l.
 # The probability of a hidden layer being zero (empty) on mutation.
 prob_zero_hidden_layer = 0.15
 # Mu.
-pop_size = 6
+pop_size = 20
 # Generational GA.
 num_offspring = pop_size
 # k.
-tournament_size = 1
+tournament_size = 3
 # Accuracy on training set.
 termination_accuracy = 0.95
 max_epochs = 2  # Default: 200.
@@ -193,9 +193,12 @@ def run():
             evaluate(population)
         print("Generation ", i)
         best = max(population, key=lambda x: x.fitness)
+        mean = np.mean([x.fitness for x in population])
         # Store best individual of generation for future evaluation.
         with open("ga-results.txt", "a") as f:
             f.write("\n" + str(best))
+        with open("ga-avg.txt", "a") as f:
+            f.write("\n" + str(mean))
         print("population")
         [print(genome) for genome in population]
         assert_good_pop(population)
