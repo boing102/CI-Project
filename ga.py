@@ -1,4 +1,3 @@
-from itertools import chain
 import numpy as np
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import normalize
@@ -21,16 +20,19 @@ prob_gene_mutation = 1 / max_hidden_layers  # 1 / l.
 # The probability of a hidden layer being zero (empty) on mutation.
 prob_zero_hidden_layer = 0.15
 # Mu.
-pop_size = 5
+pop_size = 6
 # Generational GA.
 num_offspring = pop_size
 # k.
 tournament_size = 1
 # Accuracy on training set.
 termination_accuracy = 0.95
-max_epochs = 1  # Default: 200.
+max_epochs = 2  # Default: 200.
 
 all_data_ = all_data()
+
+if pop_size % 2 != 0:
+    raise AssertionError("Pop size should be a multiple of 2")
 
 
 # Shuffle and set up training/testing data.
@@ -48,6 +50,7 @@ def shuffle_and_setup_data():
     pca = PCA(n_components=7)
     x_train_norm = pca.fit_transform(x_train_norm)
     x_test_norm = pca.transform(x_test_norm)
+
 
 # A list of the nodes in hidden layers, and maybe a fitness.
 class Genome:
@@ -72,8 +75,8 @@ class Genome:
         shuffle_and_setup_data()
         nn = MLPRegressor(hidden_layer_sizes=self.hidden_layer_sizes(), max_iter=max_epochs)
         nn.fit(x_train_norm, y_train)
-        self.fitness = max(0,nn.score(x_test_norm, y_test)) #Don't allow for negative fitness. 0 Fitness individuals will not survive
-        print(self)
+        # Don't allow for negative fitness. 0 fitness individuals will not survive.
+        self.fitness = max(0, nn.score(x_test_norm, y_test))
 
 
 # A uniform random amount of nodes for a hidden layer.
@@ -92,9 +95,12 @@ def rand_population(amount) -> [Genome]:
 
 # Apply recombination to each pair of parents.
 def recombinations_of(mating_pool):
-    pairs = [recombine_maybe(a, b)
-             for a, b in zip(mating_pool[0::2], mating_pool[1::2])]
-    return list(chain.from_iterable(pairs))
+    result = []
+    for i in range(0, len(mating_pool) - 1, 2):
+        result += recombine_maybe(mating_pool[i], mating_pool[i+1])
+    assert len(mating_pool) == len(result)
+    return result
+
 
 # One point crossover, probabilistically applied, else returns parents.
 def recombine_maybe(parent_a, parent_b) -> (Genome, Genome):
@@ -119,7 +125,6 @@ def mutate_maybe(genome):
         if np.random.rand() < prob_gene_mutation:
             genome.genome[i] = uniform_gene(high_zero_prob=True)
     return genome
-
 
 
 # Fitness proportional selection using SUS.
@@ -181,43 +186,43 @@ def assert_good_pop(population):
 def run():
     i = 0
     while i == 0 or not will_terminate(population):
-        #Initialize
+        # Initialize
         if i == 0:
             print("Initialize random population")
             population = rand_population(pop_size)
             evaluate(population)
         print("Generation ", i)
         best = max(population, key=lambda x: x.fitness)
-        #Store best individual of generation for future evalution
+        # Store best individual of generation for future evaluation.
         with open("ga-results.txt", "a") as f:
             f.write("\n" + str(best))
         print("population")
         [print(genome) for genome in population]
         assert_good_pop(population)
 
-        #Mating pool
+        # Mating pool
         mating_pool = parent_selection(population, num_offspring)
         print("mating_pool")
         [print(genome) for genome in mating_pool]
-        
-        #Offspring
+
+        # Offspring
         print("offspring")
         offspring = recombinations_of(mating_pool)
-        print("Size offspring", len(offspring))
         evaluate(offspring)
         [print(genome) for genome in offspring]
-        
-        #Mutate offspring
+
+        # Mutate offspring
         mutants = [mutate_maybe(genome) for genome in offspring]
         print("evaluate mutants")
         evaluate(mutants)
         [print(genome) for genome in mutants]
-        
-        #Survivor selection
+
+        # Survivor selection
         population = survivor_selection(mutants)
         evaluate(population)
         population[np.random.randint(len(population))] = best
-        i+=1
+        i += 1
+
 
 if __name__ == "__main__":
     run()
