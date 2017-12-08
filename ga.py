@@ -24,11 +24,11 @@ pop_size = 40
 # Generational GA.
 num_offspring = pop_size
 # k.
-tournament_size = 3
+tournament_size = 10
 # Accuracy on training set.
 termination_accuracy = 0.95
 max_epochs = 1  # Default: 200.
-REPEAT = 5
+REPEAT = 5  # Average fitness over REPEAT times.
 
 all_data_ = all_data()
 train_data, _, test_data = split_data(all_data_, 4, 0, 1)
