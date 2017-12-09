@@ -9,6 +9,7 @@ from data import all_data, split_data, x_y
 
 input_layer_nodes = 22
 output_layer_nodes = 3
+min_hidden_layers = 1
 max_hidden_layers = 3  # Genome length.
 min_hidden_layer_nodes = 0
 max_hidden_layer_nodes = 5 * max(input_layer_nodes, output_layer_nodes)
@@ -16,18 +17,24 @@ max_hidden_layer_nodes = 5 * max(input_layer_nodes, output_layer_nodes)
 # The probability of recombination being applied to a pair of parents.
 prob_parents_recombining = 0.5
 # The probability of a gene in a genome being mutated. p_m in literature.
-prob_gene_mutation = 1 / max_hidden_layers  # 1 / l.
+# 1 / l is a probability of 1 genome on average.
+prob_gene_mutation = 1 / max_hidden_layers
 # The probability of a hidden layer being zero (empty) on mutation.
 prob_zero_hidden_layer = 0.15
+use_high_prob_zero_hl = False
+# Probability of injecting a new random individual. Essentially this is a
+# second mutation operator that applies mutation with a probability to the
+# entire genome, with a uniform random amount of hidden layers.
+mutate_entire_genome_prob = 0.1  # So 5 / 50 genomes.
+use_genome_mutation = True
 # Mu.
-pop_size = 40
+pop_size = 50
 # Generational GA.
 num_offspring = pop_size
 # k.
 tournament_size = 10
-# Accuracy on training set.
-termination_accuracy = 0.95
 max_epochs = 1  # Default: 200.
+SHUFFLE = True  # Shuffle training data.
 REPEAT = 5  # Average fitness over REPEAT times.
 
 all_data_ = all_data()
@@ -41,7 +48,8 @@ if pop_size % 2 != 0:
 def shuffle_and_setup_data(shuffle):
     if shuffle:
         np.random.shuffle(train_data)
-        np.random.shuffle(test_data)
+    # Should always shuffle test data? Just in-case.
+    np.random.shuffle(test_data)
     global y_train
     global x_train_norm
     global y_test
@@ -50,7 +58,7 @@ def shuffle_and_setup_data(shuffle):
     x_train_norm = normalize(x_train)
     x_test, y_test = x_y(test_data)
     x_test_norm = normalize(x_test)
-    pca = PCA(n_components=7)
+    pca = PCA(n_components=6)
     x_train_norm = pca.fit_transform(x_train_norm)
     x_test_norm = pca.transform(x_test_norm)
 
@@ -60,8 +68,13 @@ class Genome:
 
     # A uniform random genome without fitness.
     def __init__(self):
-        self.genome = [uniform_gene(high_zero_prob=True)
-                       for _ in range(max_hidden_layers)]
+        num_hidden_layers = np.random.randint(
+            min_hidden_layers, max_hidden_layers + 1)
+        print("random hidden layers: {0}".format(num_hidden_layers))
+        self.genome = [uniform_gene() for _ in range(num_hidden_layers)]
+        # Pad missing values with 0.
+        self.genome += [0 for _ in range(max_hidden_layers - len(self.genome))]
+        assert len(self.genome) == max_hidden_layers
         self.fitness = 0
 
     # Pretty information.
@@ -74,62 +87,22 @@ class Genome:
         return list(filter(lambda x: x > 0, self.genome))
 
     # Evaluate the genome's fitness.
-    def evaluate(self, shuffle=False, max_iter=max_epochs, repeat=REPEAT):
+    def evaluate(self, shuffle=SHUFFLE, max_iter=max_epochs, repeat=REPEAT):
         self.fitness = np.mean([self.single_eval(shuffle, max_iter)
                                 for _ in range(repeat)])
 
     def single_eval(self, shuffle, max_iter):
         shuffle_and_setup_data(shuffle=shuffle)
-        max_iter = max_epochs if max_iter is None else max_iter
         nn = MLPRegressor(hidden_layer_sizes=self.hidden_layer_sizes(), max_iter=max_iter)
         nn.fit(x_train_norm, y_train)
         # Don't allow for negative fitness. 0 fitness individuals will not survive.
         return max(0, nn.score(x_test_norm, y_test))
 
 
-# How often to repeat given max_iter=1.
-def test_repeat():
-    for repeat in range(1, 20):
-        diff = eval_diff(shuffle=False, max_iter=1, repeat=repeat)
-        print("repeat {0} diff {1}".format(diff, repeat))
-
-
-# Determine eval_diff over different max_iter.
-def test_max_iter():
-    for max_iter in range(1, 20):
-        diff = eval_diff(shuffle=False, max_iter=max_iter, repeat=REPEAT)
-        print("max_iter {0}: diff {1}".format(max_iter, diff))
-
-
-# Should use shuffle or not?
-def test_shuffle():
-    total_shuffle_diff = 0
-    total_no_shuffle_diff = 0
-    for max_iter in range(5, 10):
-        shuffle_diff = eval_diff(shuffle=True, max_iter=max_iter, repeat=5)
-        no_shuffle_diff = eval_diff(shuffle=False, max_iter=max_iter, repeat=5)
-        print("shuffle {0} max_iter {1} diff {2}".format(True, max_iter, shuffle_diff))
-        print("shuffle {0} max_iter {1} diff {2}".format(False, max_iter, no_shuffle_diff))
-        total_shuffle_diff += shuffle_diff
-        total_no_shuffle_diff += no_shuffle_diff
-    print("total shuffle diff {0}".format(total_shuffle_diff))
-    print("total no shuffle diff {0}".format(total_no_shuffle_diff))
-
-
-# Difference in two equivalent evaluations of a random genome.
-def eval_diff(shuffle, max_iter, repeat):
-    genome = Genome()
-    genome.evaluate(shuffle=shuffle, max_iter=max_iter, repeat=repeat)
-    f1 = genome.fitness
-    genome.evaluate(shuffle=shuffle, max_iter=max_iter, repeat=repeat)
-    f2 = genome.fitness
-    return abs(f1 - f2)
-
-
 # A uniform random amount of nodes for a hidden layer.
 # Zero (empty hidden layer) may be given a higher probability.
-def uniform_gene(high_zero_prob=False) -> int:
-    if high_zero_prob and np.random.rand() < prob_zero_hidden_layer:
+def uniform_gene() -> int:
+    if use_high_prob_zero_hl and np.random.rand() < prob_zero_hidden_layer:
         return 0
     return np.random.randint(
         min_hidden_layer_nodes, max_hidden_layer_nodes + 1)
@@ -152,7 +125,7 @@ def recombinations_of(mating_pool):
 # One point crossover, probabilistically applied, else returns parents.
 def recombine_maybe(parent_a, parent_b) -> (Genome, Genome):
     # Recombination may not happen.
-    if np.random.rand() >= prob_parents_recombining:
+    if np.random.rand() > prob_parents_recombining:
         return parent_a, parent_b
     # Okay it will happen.
     child_a = Genome()
@@ -168,10 +141,34 @@ def recombine_maybe(parent_a, parent_b) -> (Genome, Genome):
 
 # Random resetting with independent probability p_m per gene.
 def mutate_maybe(genome):
+    # We may mutate the entire genome, in which case we ignore the other
+    # mutation operator.
+    if use_genome_mutation and np.random.rand() < mutate_entire_genome_prob:
+        print("Genome prior entire mutation: {0}".format(genome))
+        genome = Genome()
+        print("Genome after entire mutation: {0}".format(genome))
+    # Else we apply gaussian perturbation to each gene independently with
+    # probability prob_zero_hidden_layer. 0 has a high probability.
     for i in range(max_hidden_layers):
         if np.random.rand() < prob_gene_mutation:
-            genome.genome[i] = uniform_gene(high_zero_prob=True)
+            genome.genome[i] = gene_from_gaussian_peturbation(genome.genome[i])
+        if use_high_prob_zero_hl and np.random.rand() < prob_zero_hidden_layer:
+            genome.genome[i] = 0
     return genome
+
+
+# A gene from mutation using gaussian peturbation.
+# Receives the gene's previous value.
+def gene_from_gaussian_peturbation(val):
+    print("val before peturbation: {0}".format(val))
+    # Mean 0, spread is half of max range.
+    gauss = int(np.random.normal(0, max_hidden_layer_nodes / 2))
+    print("gauss: {0}".format(gauss))
+    val += gauss
+    print("val: {0}".format(val))
+    val = max(0, min(max_hidden_layer_nodes, val))
+    print("val after peturbation: {0}".format(val))
+    return int(val)
 
 
 # Fitness proportional selection using SUS.
@@ -213,26 +210,21 @@ def survivor_selection(offspring):
     return survivors
 
 
-# Given a population, we decide to terminate if a fitness threshold is reached.
-def will_terminate(population):
-    fittest_genome = max(population, key=lambda g: g.fitness)
-    print("Generation fittest genome = {0}".format(fittest_genome))
-    return fittest_genome.fitness >= termination_accuracy
-
-
 # Evaluate a population of individuals.
 def evaluate(population):
     [genome.evaluate() for genome in population]
 
 
+# Just a sanity-check that genomes are not None.
 def assert_good_pop(population):
     for genome in population:
         assert genome is not None
 
 
+# Main loop of this neuro-topology optimizing GA.
 def run():
     i = 0
-    while i == 0 or not will_terminate(population):
+    while True:
         # Initialize
         if i == 0:
             print("Initialize random population")
@@ -272,6 +264,50 @@ def run():
         evaluate(population)
         population[np.random.randint(len(population))] = best
         i += 1
+
+
+# Functions for testing different settings of the EA ##########################
+
+
+# How often to repeat given max_iter=1.
+def test_repeat():
+    for repeat in range(1, 20):
+        diff = eval_diff(shuffle=False, max_iter=1, repeat=repeat)
+        print("repeat {1} diff {0}".format(diff, repeat))
+
+
+# Determine eval_diff over different max_iter.
+def test_max_iter():
+    for max_iter in range(1, 20):
+        diff = eval_diff(shuffle=False, max_iter=max_iter, repeat=REPEAT)
+        print("max_iter {0}: diff {1}".format(max_iter, diff))
+
+
+# Should use shuffle or not?
+def test_shuffle():
+    total_shuffle_diff = 0
+    total_no_shuffle_diff = 0
+    for max_iter in range(5, 10):
+        shuffle_diff = eval_diff(shuffle=True, max_iter=max_iter, repeat=5)
+        no_shuffle_diff = eval_diff(shuffle=False, max_iter=max_iter, repeat=5)
+        print("shuffle {0} max_iter {1} diff {2}".format(True, max_iter, shuffle_diff))
+        print("shuffle {0} max_iter {1} diff {2}".format(False, max_iter, no_shuffle_diff))
+        total_shuffle_diff += shuffle_diff
+        total_no_shuffle_diff += no_shuffle_diff
+    print("total shuffle diff {0}".format(total_shuffle_diff))
+    print("total no shuffle diff {0}".format(total_no_shuffle_diff))
+
+
+# Difference in two equivalent evaluations of a random genome.
+def eval_diff(shuffle, max_iter, repeat):
+    genome = Genome()
+    genome.evaluate(shuffle=shuffle, max_iter=max_iter, repeat=repeat)
+    f1 = genome.fitness
+    genome.evaluate(shuffle=shuffle, max_iter=max_iter, repeat=repeat)
+    f2 = genome.fitness
+    return abs(f1 - f2)
+
+###############################################################################
 
 
 if __name__ == "__main__":
