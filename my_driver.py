@@ -63,8 +63,8 @@ Command attributes:
 """
 
 # Path of carstate given car ID.
-carstate_folder = "all-carstates"
-carstate_filepath = lambda car_id: os.path.join(_dir, carstate_folder, "carstate-{0}".format(car_id))
+carstate_folder = os.path.join(_dir, "all-carstates")
+carstate_filepath = lambda car_id: os.path.join(carstate_folder, "carstate-{0}".format(car_id))
 
 if not os.path.exists(carstate_folder):
     os.makedirs(carstate_folder)
