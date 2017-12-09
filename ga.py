@@ -70,7 +70,6 @@ class Genome:
     def __init__(self):
         num_hidden_layers = np.random.randint(
             min_hidden_layers, max_hidden_layers + 1)
-        print("random hidden layers: {0}".format(num_hidden_layers))
         self.genome = [uniform_gene() for _ in range(num_hidden_layers)]
         # Pad missing values with 0.
         self.genome += [0 for _ in range(max_hidden_layers - len(self.genome))]
@@ -144,9 +143,7 @@ def mutate_maybe(genome):
     # We may mutate the entire genome, in which case we ignore the other
     # mutation operator.
     if use_genome_mutation and np.random.rand() < mutate_entire_genome_prob:
-        print("Genome prior entire mutation: {0}".format(genome))
         genome = Genome()
-        print("Genome after entire mutation: {0}".format(genome))
     # Else we apply gaussian perturbation to each gene independently with
     # probability prob_zero_hidden_layer. 0 has a high probability.
     for i in range(max_hidden_layers):
@@ -160,14 +157,10 @@ def mutate_maybe(genome):
 # A gene from mutation using gaussian peturbation.
 # Receives the gene's previous value.
 def gene_from_gaussian_peturbation(val):
-    print("val before peturbation: {0}".format(val))
     # Mean 0, spread is half of max range.
     gauss = int(np.random.normal(0, max_hidden_layer_nodes / 2))
-    print("gauss: {0}".format(gauss))
     val += gauss
-    print("val: {0}".format(val))
     val = max(0, min(max_hidden_layer_nodes, val))
-    print("val after peturbation: {0}".format(val))
     return int(val)
 
 
