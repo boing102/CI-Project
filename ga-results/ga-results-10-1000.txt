@@ -1,0 +1,6 @@
+
+hidden layers: [840, 48, 96, 886, 654] fitness: 0.32556826899421376
+hidden layers: [317, 570, 911, 497, 721] fitness: 0.3151494975039869
+hidden layers: [317, 570, 911, 527] fitness: 0.3198255090939357
+hidden layers: [481, 570, 911, 527] fitness: 0.2975021512543514
+hidden layers: [720, 905, 1000, 129, 84, 250] fitness: 0.32153922285670744

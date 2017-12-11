@@ -1,0 +1,15 @@
+
+hidden layers: [667, 911, 280] fitness: 0.30612432696527414
+hidden layers: [667, 911, 280] fitness: 0.30612432696527414
+hidden layers: [699, 146, 692] fitness: 0.2966339105692615
+hidden layers: [941, 55, 725] fitness: 0.31461364042365114
+hidden layers: [488, 187, 475] fitness: 0.303899692745658
+hidden layers: [488, 187, 475] fitness: 0.303899692745658
+hidden layers: [485, 136, 475] fitness: 0.3053662344351046
+hidden layers: [1000, 40, 475] fitness: 0.30750440194353323
+hidden layers: [149, 608, 363] fitness: 0.29996376553015425
+hidden layers: [1000, 608, 363] fitness: 0.29376411664390895
+hidden layers: [615, 241, 618] fitness: 0.2919456069395492
+hidden layers: [1000, 1000, 218] fitness: 0.30485902314784435
+hidden layers: [737, 1000, 363] fitness: 0.29562180324204573
+hidden layers: [395, 502, 162] fitness: 0.2981576949364924
