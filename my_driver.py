@@ -231,7 +231,7 @@ class MyDriver(Driver):
 
           #Cooperation
         other_car_id = get_other_car_id(self.car_id)
-        if (not other_car_id == None):
+        if (not other_car_id == None and carstate.current_lap_time > 10):
             other_carstate = load_carstate(other_car_id)
 
             try:
@@ -239,7 +239,7 @@ class MyDriver(Driver):
                 d1, d2 = c1.distance_from_start, c2.distance_from_start
                 r1, r2 = c1.race_position,c2.race_position
                 dc1, dc2 = c1.distance_from_center, c2.distance_from_center
-                steeringParam = 1
+                steeringParam = 1.0
                 distanceParam = 0.6
                 #Parallel driving
                 if abs(r2 - r1) == 1 and min(r1,r2) <= 3 and abs(d2 - d1) < 30:
