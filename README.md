@@ -16,6 +16,8 @@ can be started with `start-data-collection.sh`.
 
 `ann-0.py` is an unused simply self-implemented NN.
 
+`data.py` is to read in training data.
+
 ## Folders
 
 Results of the GA are in `ga-results/`.
